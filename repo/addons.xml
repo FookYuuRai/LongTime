@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addons>
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.118">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1"/>
+        <import addon="script.module.pil" version="1.1.7"/>
+        <import addon="script.module.requests" version="2.19.1"/>
+        <import addon="service.nntp.stream" version="0.2.3" optional="true"/>
+    </requires>
+    <extension point="xbmc.python.pluginsource" library="resources/lib/nightshift.py">
+        <provides>video</provides>
+    </extension>
+    <extension point="xbmc.service" library="resources/lib/service.py"/>
+    <extension point="xbmc.python.module" library="resources/lib/"/>
+    <extension point="xbmc.addon.metadata">
+        <reuselanguageinvoker>true</reuselanguageinvoker>
+        <summary lang="en">[COLOR FF4696FF]NIGHTSHIFT[/COLOR]</summary>
+        <description lang="en">* AllDebrid, Offcloud, Premiumize, Real Debrid and TorBox
+* AIOStreams
+* EasyNews, NZB Indexers and Local Folders
+* MDBList, PunchPlay, Simkl, TMDb Lists, Trakt and WeTrakr</description>
+        <platform>all</platform>
+        <disclaimer lang="en">This add-on does not host any content and has no affiliation with the content providers</disclaimer>
+        <assets>
+            <icon>resources/media/addon_icons/icon.png</icon>
+            <fanart>resources/media/fanart.jpg</fanart>
+        </assets>
+        <news>Check the Changelog in Tools &gt; Changelog &amp; Log Utils[/COLOR]</news>
+    </extension>
+</addon>
+<addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.2.0" provider-name="Custom">
+  <requires><import addon="xbmc.python" version="3.0.1"/></requires>
+  <extension point="xbmc.service" library="service.py" start="startup"/>
+  <extension point="xbmc.python.script" library="folders.py"/>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en_GB">Plays the 26 built-in background tracks (each can be switched off), plus music from folders you add, while browsing the Nightshift skin.</summary>
+    <description lang="en_GB">Plays the 26 built-in tracks while the Nightshift Neon skin is active. In the add-on settings every built-in track has its own on/off switch, and you can add your own music folders (subfolders are included), remove them, and turn the built-in tracks or shuffle on or off. It yields to normal audio/video playback and restarts ambient music when playback ends.</description>
+    <platform>all</platform>
+    <license>Custom personal-use companion to Nightshift Neon</license>
+  </extension>
+</addon>
+<addon id="script.skinshortcuts" name="Skin Shortcuts" version="3.0.4" provider-name="MikeSiLVO">
+    <requires>
+        <import addon="xbmc.python" version="3.0.2"/>
+    </requires>
+    <extension point="xbmc.python.script" library="default.py"/>
+    <extension point="xbmc.addon.metadata">
+        <news>
+3.0.4
+  - Add: property names match regardless of case
+  - Add: limit, sortby and sortorder from a widget definition reach every item the widget is assigned to
+  - Add: EMPTY, IN and bare checks in a suffixed condition follow the suffix
+  - Add: a warning when a menu, item, widget, background or view name is defined more than once
+  - Add: log off, screensaver and library update/clean in the commands source
+  - Add: the commands source only lists what the system can run
+  - Fix: the commands source labels match the command each one runs
+  - Fix: a shortcut picked from the groupings keeps the conditions on its actions
+  - Fix: a variable a template declares stays defined when no menu item matches it
+
+        </news>
+        <platform>all</platform>
+        <license>GPL-2.0-only</license>
+        <forum>https://forum.kodi.tv/showthread.php?tid=383314</forum>
+        <source>https://github.com/MikeSiLVO/script.skinshortcuts</source>
+        <assets>
+            <icon>resources/media/icon.png</icon>
+            <fanart>resources/media/fanart.jpg</fanart>
+        </assets>
+        <summary lang="cs_CZ">Vlastní nabídky, vlastnosti a grafika pro vzhledy</summary>
+        <summary lang="en_GB">Custom menus, properties, and artwork for skins</summary>
+        <summary lang="es_ES">Menús, propiedades y arte personalizado para skins</summary>
+        <summary lang="hu_HU">Egyéni menük, tulajdonságok és képek a felszínekhez</summary>
+        <summary lang="it_IT">Menu personalizzati, proprietà e grafica per le skin</summary>
+        <summary lang="pl_PL">Niestandardowe menu, właściwości i grafika dla skórek</summary>
+        <summary lang="ru_RU">Пользовательские меню, свойства и иллюстрации для обложек</summary>
+        <summary lang="zh_CN">皮肤自定义菜单、属性与艺术图</summary>
+        <description lang="ar_SA">إضافة مخصصه للمظهر لتوفير إدارة بسيطة للودجيت &quot;الأقسام&quot; و الاختصارات على الشاشة (تتطلب دعم المظهر لها)</description>
+        <description lang="bs_BA">Dodatak za skinove koji omogućava jednostavno upravljanje i prikaz korisničkih prečica (potrebna je podrška za skinove)</description>
+        <description lang="cs_CZ">Doplněk pro vzhledy poskytující jednoduchou správu a vypisování uživatelských zkratek (vyžaduje podporu vzhledu)</description>
+        <description lang="da_DK">Add-on til skins der giver enkel styring og lister over brugergenveje (kræver skin-understøttelse)</description>
+        <description lang="de_DE">Addon für Skins zum einfachen Verwalten und Anzeigen von benutzerdefinierten Verknüpfungen (erfordert Skinunterstützung)</description>
+        <description lang="el_GR">Πρόσθετο για κελύφη, το οποίο παρέχει έναν απλό τρόπο διαχείρισης και κατηγοριοποίησης των συντομεύσεων του χρήστη (πρέπει να υποστηρίζεται από το κέλυφος)</description>
+        <description lang="en_GB">Add-on for skins to provide simple managing and listing of user shortcuts (requires skin support)</description>
+        <description lang="en_NZ">Add-on for skins to provide simple managing and listing of user shortcuts (requires skin support)</description>
+        <description lang="en_US">Add-on for skins to provide simple managing and listing of user shortcuts (requires skin support)</description>
+        <description lang="es_ES">Complemento para skins para proporcionar una gestión y listado sencillo de accesos directos de usuario (requiere que el skin lo soporte)</description>
+        <description lang="et_EE">Lisamoodul, mis võimaldab lisada ja redigeerida rüü menüüelemente ja oma otseteid (vajab rüü tuge)</description>
+        <description lang="fi_FI">Lisäosa, jonka avulla ulkoasut voivat tarjota käyttäjille helpon tavan hallita ja mukauttaa valikoita ja pikavalintoja (vaatii ulkoasukohtaisen tuen).</description>
+        <description lang="fr_CA">Addiciel pour habillages qui fournit une gestion simple et un listage des raccourcis utilisateurs (exige la prise en charge de l&apos;habillage)</description>
+        <description lang="fr_FR">Module complémentaire pour les skins pour fournir une gestion et une liste simples de raccourcis utilisateur (nécessite la prise en charge des skins)</description>
+        <description lang="gl_ES">Complemento que fornece aos temas dunha xestión sinxela dos atallos dos usuarios (require soporte do tema)</description>
+        <description lang="hr_HR">Dodatak za presvlake koji omogućuje jednostavno upravljanje i prikaz prečaca korisnika (zahtijeva podršku presvlake)</description>
+        <description lang="hu_HU">Felszín kiegészítő amely könnyen kezelhetővé és listázhatóvá teszi a felhasználói parancsikonokat (Felszín támogatás szükséges)</description>
+        <description lang="is_IS">Viðbót fyrir viðmót til að halda utan um flýtivísa og fá yfirlit yfir þá (þarfnast stuðnings frá viðmóti)</description>
+        <description lang="it_IT">Add-on per skin per fornire una semplice gestione ed elenco delle scorciatoie utente (richiede il supporto della skin)</description>
+        <description lang="ko_KR">사용자 단축키의 간단한 관리 및 목록을 제공하는 스킨용 애드온(스킨 지원 필요)</description>
+        <description lang="lt_LT">Priedas teminėms išvaizdoms, kad jos turėtų galimybę paprastai tvarkyti ir atvaizduoti vartotojo sukurtas nuorodas (reikalingas teminės išvaizdos palaikymas)</description>
+        <description lang="nb_NO">Tillegg for enkel administrering og opplisting av bruker-snarveier i tema (krever støtte i tema)</description>
+        <description lang="nl_NL">Add-on voor skins om te voorzien in het eenvoudig beheren en sorteren van gebruikers snelkoppelingen (vereist skin ondersteuning)</description>
+        <description lang="pl_PL">Wtyczka dla skór, która umożliwia proste zarządzanie i tworzenie list skrótów użytkownika (wymaga wsparcia skóry)</description>
+        <description lang="pt_BR">Add-on para que as skins possam prover gerenciamento de lista de atalhos para o menu principal (requer suporte da skin)</description>
+        <description lang="pt_PT">Um add-on que permite que os temas tenham recursos simples para gerir e listar atalhos de utilizadores (é necessário suporte do tema)</description>
+        <description lang="ru_RU">Дополнение для обложек, предоставляющее простой способ управления пользовательскими ярлыками (требуется поддержка обложкой)</description>
+        <description lang="sk_SK">Doplnok poskytujúci jednoduchý manažment zoznamu užívateľských odkazov (vyžaduje podporu v doplnku pre vzhľad)</description>
+        <description lang="sv_SE">Skinntillägg som tillhandahåller enkel hantering och översikt av användargenvägar (om skinnet stöder det)</description>
+        <description lang="zh_CN">用于皮肤的插件，提供简易的用户快捷方式管理和列表展示（需要皮肤支持）</description>
+        <description lang="zh_TW">插件为皮肤提供了简单的管理和用户连接方式列表 (需要皮肤支持)</description>
+    </extension>
+</addon>
+<addon
+	id="service.languagepreferencemanagernext"
+	name="Language Preference Manager NeXt"
+	version="2.0"
+	provider-name="ace20022/scott967/rockrider69"
+	>
+	<requires>
+		<import addon="xbmc.python" version="3.0.0"/>
+	</requires>
+	<extension point="xbmc.service" library="default.py"/>
+	<extension point="xbmc.python.script" library="default.py">
+		<provides>executable</provides>
+	</extension>
+	<extension point="xbmc.addon.metadata">
+		<summary lang="zh_CN">语言偏好管理器</summary>
+		<summary lang="en_GB">Language Preference Manager</summary>
+		<summary lang="sv_SE">Hanterare för språkinställningar</summary>
+		<summary lang="it_IT">Gestore delle preferenze linguistiche</summary>
+		<summary lang="ja_JP">言語設定マネージャー</summary>
+		<summary lang="de_DE">Sprachpräferenz-Manager</summary>
+		<summary lang="fr_FR">Gestionnaire des préférences linguistiques</summary>
+		<description lang="zh_CN">根据你的语言偏好自动选择音轨与字幕轨道</description>
+		<description lang="en_GB">Sets the audio and subtitle track according to your language preferences</description>
+		<description lang="sv_SE">Ställer in ljud- och undertextspår enligt dina språkinställningar</description>
+		<description lang="it_IT">Imposta le tracce audio e dei sottotitoli in base alle preferenze linguistiche.</description>
+		<description lang="ja_JP">言語設定に従って音声トラックと字幕トラックを設定します。</description>
+		<description lang="de_DE">Legt die Audio- und Untertitelspur entsprechend Ihren Spracheinstellungen fest</description>
+		<description lang="fr_FR">Définit les pistes audio et de sous-titres selon vos préférences linguistiques</description>
+		<disclaimer lang="zh_CN">如遇到 Bug、功能需求或相关问题，请前往 Kodi 论坛的语言偏好管理器主题帖反馈。</disclaimer>
+		<disclaimer lang="en_GB">For bugs, requests or general questions visit the Language Preference Manager thread on the Kodi forum.</disclaimer>
+		<disclaimer lang="sv_SE">För buggar, önskemål eller allmänna frågor, besök tråden Language Preference Manager på Kodi-forumet.</disclaimer>
+		<disclaimer lang="it_IT">Per bug, richieste o domande generali, visita il thread di Language Preference Manager sul forum Kodi.</disclaimer>
+		<disclaimer lang="ja_JP">バグ報告、要望、一般的な質問については、KodiフォーラムのLanguage Preference Managerスレッドをご覧ください。</disclaimer>
+		<disclaimer lang="de_DE">Bei Fehlern, Anfragen oder allgemeinen Fragen besuchen Sie den Thread „Language Preference Manager“ im Kodi-Forum.</disclaimer>
+		<disclaimer lang="fr_FR">Pour signaler des bugs, faire des demandes ou poser des questions générales, consultez le fil « Language Preference Manager » sur le forum Kodi.</disclaimer>
+		<platform>all</platform>
+		<news>2.0 : - Builds on 1.1.1Beta1.
+- Renamed: installs as "Language Preference Manager NeXt" (id service.languagepreferencemanagernext), next to the original. The settings changed in the original and its stored preferences are taken over once; when the original is installed and enabled as well, the add-on asks once whether to turn it off.
+- New: two regex subtitle filter profiles - "Anime &amp; forced foreign subtitles" (as before) and "Anime &amp; foreign subtitles, not forced" (no "forced" in the pattern); each has its own list of additional words (comma separated, whole words only or anywhere in the name) that is used in addition to the built-in pattern, which is not changed.
+- Fix: the settings dump shows what a spinner stands for and the order of the subtitle formats; all settings are written once per playback, a changed setting is written on its own.
+- Removed: the Audio Preferences and Subtitle Preferences tabs; General, Conditional Subtitle Preferences (the rules, which can also choose the audio) and Overrides remain.
+- Regional/script language variants (English UK/US/Australia/India/Canada, Spanish Spain/Latin America,
+  French France/Canada/Belgium/Switzerland, Portuguese Portugal/Brazil, Chinese Simplified/Traditional,
+  German Switzerland/Austria, Dutch Belgium) share one engine; the region is read from the track tag, title or
+  external subtitle file name.
+- New "Sub converter": ASS/SSA and other text subtitles keep their styles, only bottom lines move to the top.
+- New: subtitle format preference (issue #30): rank SRT, ASS/SSA, WebVTT, PGS and VobSub in General settings; among
+  subtitles that fit your language preference equally well, the first format of your list that is present is used.
+- Reworked seekback / "Fast Subtitles Display" ("Start &amp; Resume" by default).
+- Regex subtitle filter fixes; external subtitle languages read from file names; safer stored preferences.
+- The settings values of the 1.1.1Beta1 language variants were renumbered: re-select regional languages in settings.
+- New: each conditional subtitle rule can use its own preferred subtitle format (general order, or the 1st / 2nd / 3rd format of the General settings); custom rules: -f1 / -f2 / -f3.
+- Fix: the sub converter also runs when subtitles are switched by hand during the playback, and converts embedded SRT as well.
+- Fix: subtitle format preference with external subtitle files of the same language (Movie.en.ass + Movie.en.srt): a preferred ASS is no longer passed over for an embedded PGS (.sup).
+- New: protection against a stale copy: no compiled Python files are used, the log shows the running version and code, and a warning is shown when another copy of the add-on is installed. Settings, General, Installation: "Check installation" says whether the installation is clean.
+- Fixed: with a subtitle format preference set, a text track (ASS/SRT/WebVTT) that only has the forced/default flag (no "forced" in its name) is no longer excluded from non-forced rules, so the format preference can choose it (e.g. English ASS flagged forced+default with Japanese audio). Flagged image tracks (PGS/VobSub) and tracks named "forced" stay excluded; the unflagged track wins a tie within the same format; without a format preference nothing changes.
+- Changed: the regex subtitle filter now respects the preferred subtitle language and format. Among the tracks the regex matches, it takes the language of the conditional rule for the playing audio, then the best format (the rule's 1st/2nd/3rd choice or the general order); the forced/default/original flags and "forced" names do not count there. If no matching track is in a preferred language, the filter works as before (ASS first, forced tracks deferred).
+  1.1.1Beta1 : - Add regional/script language preferences for English, French, Spanish,
+  Portuguese and Chinese, grouped with their base language in settings (Thanks to Hugs11).
+- Prefer exact BCP-47 tags or recognized track-title variants, then unlabelled
+  tracks of the same language; preserve generic language preferences (Thanks to Hugs11).
+- Add Chinese translation (Thanks to wabisabi926).
+- Avoid some wrong seekback decisions in subtitles delayed workaround.
+		</news>
+		<assets>
+			<icon>resources/icon.png</icon>
+			<fanart>resources/fanart.jpg</fanart>
+		</assets>
+	</extension>
+</addon>
+<addon id="service.mediastructureengine.skip"
+       name="MediaStructureEngine Skip"
+       version="0.1.16"
+       provider-name="MediaStructureEngine">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1"/>
+    </requires>
+    <extension point="xbmc.service" library="service.py" start="startup"/>
+    <extension point="xbmc.python.script" library="test_popup.py"/>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="en_GB">Skip intro, recap, credits and preview segments from online databases, theme songs and the sound of the episodes</summary>
+        <description lang="en_GB">Looks up segment times at TheIntroDB and IntroDB, finds anime openings and endings by comparing the episode's sound with the theme song from AnimeThemes, reads chapters, and compares episodes of the same show. Only fingerprints are kept (fingerprint.db); the sound is never saved. Other add-ons can ask it for the segments of an episode.</description>
+        <platform>all</platform>
+        <license>GPL-2.0-or-later</license>
+        <assets>
+            <icon>resources/icon.png</icon>
+        </assets>
+        <news lang="en_GB">v0.1.16 - "Show what fingerprint.db holds" now opens a list of every show, its episodes, fingerprints and found segments, and the themes. v0.1.15 - Music and other background audio no longer start or reset the skip logic, and movies are ignored (episodes only: episode info or SxxEyy in the name; the "any long video" fallback is gone). Requests from other add-ons are ignored unless they are for an episode. v0.1.14 - New setting: end offset when NO end was found (credits / preview that run to the end of the video, counted from 10 s before the end). The end and credits end offsets now apply only to ends that were found. v0.1.13 - Fix: the end offsets (general and credits / outro) now also move the skip target of a credits or preview segment that has no end time of its own (it runs to the end of the video), which is when the log said the target was always 10 s before the end. v0.1.12 - Fix: offsets are now applied every time segments are read, so changing them works for episodes already looked up (before, the old offsets stayed baked in until the add-on restarted). v0.1.11 - New settings: separate start and end offsets for credits / outro segments (added on top of the general offsets). v0.1.10 - New settings: unselected button outline (faint / normal / strong) and card backdrop (transparent / light / dark). v0.1.9 - Skip buttons and cards now use the NightShift look: transparent, thin outline, neon border on the selected button (pill and card styles, 1080i and 720p). v0.1.8 - One zip for every device (64-bit ARM, 32-bit ARM, x86-64); on first start the add-on keeps the library of the device it runs on and deletes the others. v0.1.7 - The skip button hides after 12 s by default (never stays longer than 30 s). v0.1.6 - The card prefers the show fanart, then the thumbnail. v0.1.5 - The card shows the thumbnail and episode line the player supplies. v0.1.4 - The card style now copies the NightShift skip prompt (dimmed top, thumbnail, heading, episode line, round buttons) for every segment kind. v0.1.3 - Test popup works (settings action), visible button textures, card style with thumbnail, the skip button closes when another video starts, the extra skip-past-end seconds setting is gone (offsets replace it).</news>
+    </extension>
+</addon>
+<addon id="service.nntp.stream" version="0.2.3" name="NNTP Stream" provider-name="nntp-project">
+  <requires>
+    <import addon="xbmc.python" version="3.0.1"/>
+  </requires>
+  <extension point="xbmc.service" library="service.py" start="startup"/>
+  <extension point="xbmc.python.script" library="settings_entry.py"/>
+  <extension point="xbmc.python.module" library="lib"/>
+  <extension point="xbmc.addon.metadata">
+    <platform>all</platform>
+    <provides>executable</provides>
+    <summary lang="en_GB">Play Usenet NZBs: availability check, native reader, local HTTPS fallback</summary>
+    <description lang="en_GB">Shared Usenet streaming for Kodi add-ons. Other add-ons call nntpstream.check(nzb, servers) to find out whether a release is complete (STAT, no download) and nntpstream.play_url(nzb, servers) to get a playable URL. With vfs.nntp installed the film is read natively on all cores (nntpstream://); without it a plain-HTTP server on 127.0.0.1 is used (no certificate or key is shipped). Your own certificates: put .pem files in userdata/addon_data/service.nntp.stream/certs.</description>
+    <license>GPL-3.0-or-later</license>
+    <news>0.2.3 - the unpacked file name no longer keeps commas and similar characters (a comma split the PlayMedia arguments, so the file was not opened). 0.2.2 - releases with obfuscated or unquoted file names are now recognised (the real names are read from the first article of each big file); ZIP releases are recognised as packed; the "no video file" message lists the biggest files. 0.2.1 - unpacking now reads the whole release as ONE long file through vfs.nntp (rapidyenc decoder, connections shared by speed) when it is installed; the Python downloader is the fallback. 0.2.0 - new: unpack_to() downloads a packed release (stored RAR 2-5 / ZIP, multi-volume) and unpacks its video into a folder, so it plays from disk with no debrid service. 0.1.1 - fixes: the service no longer hangs when Kodi stops or updates it (it polled the GUI, which deadlocked), the empty servers setting no longer errors, the add-on shows under Program add-ons (opens its settings) as well as Services, and the fallback uses the running service for its local server. 0.1.0 - first version: STAT availability check, plan writer, Python fallback (HTTPS on 127.0.0.1), native vfs.nntp support.</news>
+  </extension>
+</addon>
+<addon id="skin.nightshift" version="1.3.7" name="Nightshift" provider-name="Custom skin; based on Kodi Estuary">
+  <requires>
+    <import addon="xbmc.gui" version="5.18.0" />
+  <import addon="script.skinshortcuts" version="3.0.4" /><import addon="script.skin.info.service" version="2.0.2~neon2" optional="true" /></requires>
+  <extension point="xbmc.gui.skin" debugging="false">
+    <res width="1920" height="1440" aspect="4:3" default="false" folder="xml" />
+    <res width="1920" height="1280" aspect="3:2" default="false" folder="xml" />
+    <res width="1920" height="1200" aspect="16:10" default="false" folder="xml" />
+    <res width="2040" height="1080" aspect="17:9" default="false" folder="xml" />
+    <res width="1920" height="1080" aspect="16:9" default="true" folder="xml" />
+    <res width="2560" height="1080" aspect="21:9" default="false" folder="xml" />
+    <res width="2338" height="1080" aspect="19.5:9" default="false" folder="xml" />
+    <res width="2160" height="1080" aspect="18:9" default="false" folder="xml" />
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en_GB">Nightshift-style neon home screen for Kodi 22.</summary>
+    <description lang="en_GB">Nightshift skin. Uses Skin Shortcuts for an editable home menu and Skin Info Service for enhanced media information, alongside the Nightshift split-panel design, CRT scanlines, and ambience companion service.</description>
+    <platform>all</platform>
+    <license>CC BY-SA 4.0; GPL-2.0-only</license>
+    <source>https://github.com/xbmc/skin.estuary/</source>
+    <assets><icon>resources/icon.png</icon><fanart>resources/fanart.jpg</fanart></assets>
+  </extension>
+</addon>
+<addon id="vfs.nntp" version="0.1.11" name="NNTP Usenet VFS" provider-name="nntp-project">
+  <requires>
+    <import addon="kodi.binary.global.main" minversion="2.0.3" version="2.0.3"/>
+    <import addon="kodi.binary.global.general" minversion="1.0.4" version="1.0.5"/>
+    <import addon="kodi.binary.global.filesystem" minversion="1.1.11" version="1.1.11"/>
+    <import addon="kodi.binary.instance.vfs" minversion="3.0.1" version="3.0.1"/>
+  </requires>
+  <extension point="kodi.vfs" protocols="nntpstream" files="true" directories="false" filedirectories="false"
+             supportBrowsing="false" supportDialog="false" supportWrite="false" label="30000"
+             library_android="vfs.nntp.so"/>
+  <extension point="xbmc.addon.metadata">
+    <platform>android-aarch64</platform>
+    <summary lang="en_GB">Reads films straight from Usenet (nntpstream://)</summary>
+    <description lang="en_GB">Native multi-connection Usenet reader for Kodi: fetches and decodes articles on all cores, reads ahead of the player, trusts your own private certificates (addon_data/service.nntp.stream/certs).</description>
+    <license>GPL-3.0-or-later</license>
+  </extension>
+</addon>
+<addon id="repository.longtime" name="LongTime" version="1.0.0" provider-name="LongTime">
+	<requires>
+		<import addon="xbmc.addon" version="12.0.0"/>
+	</requires>
+	<extension point="xbmc.addon.repository" name="LongTime">
+		<dir>
+			<info compressed="false">https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/repo/addons.xml</info>
+			<checksum>https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/repo/addons.xml.md5</checksum>
+			<datadir zip="true">https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/repo/</datadir>
+		</dir>
+	</extension>
+	<extension point="xbmc.addon.metadata">
+		<summary lang="en_GB">Add-on repository</summary>
+		<description lang="en_GB">Installs and updates the add-ons in this repository.</description>
+		<platform>all</platform>
+	</extension>
+</addon>
+</addons>
