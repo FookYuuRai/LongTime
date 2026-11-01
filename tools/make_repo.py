@@ -2,23 +2,33 @@
 """
 Builds the files Kodi reads (the Now/ folder) from the add-on zips in Later/.
 
-Put any number of add-on zips in Later/ (each zip: one top level folder named exactly like the add-on id, with
-addon.xml inside), run `python3 tools/make_repo.py`, commit, push. For every add-on id the zip with the highest
-version is published as Now/<id>/<id>-<version>.zip, with its icon and fanart, and listed in Now/addons.xml with
-Now/addons.xml.md5. The zip of the small repository add-on (the one Kodi installs once) is built as well.
+For each add-on ID, the ZIP with the highest version is published as
+Now/<id>/<id>-<version>.zip, with its icon and fanart, and listed in
+Now/addons.xml with Now/addons.xml.md5.
 
-After a successful build, every zip in Later/ that is not the published version of its add-on is deleted. Git history
-keeps the old copies. If the build fails, nothing in Later/ is deleted.
+The repository add-on ZIP is built as well.
 
-Also written: index.html pages for browsing on the site (the root and Now/ and each folder below it). Those pages only
-link to files on this same site. No page is written for Later/.
+Background audio:
+    Later/27_aquatic-ambiance.opus
+    Later/28_rain-and-waves.mp3
+    Later/29_forest-at-night.m4a
 
-  --base  the address the files are served from (default: this repository's raw files)
-  --out   where the files are written (default: Now/)
-  --now   the folder with the source zips (default: Later/)
+The highest-numbered supported audio file is copied to:
+    Now/io.page.background.track/<original-filename>
+
+A current.json manifest identifies the published audio file.
+
+After a successful build, superseded add-on ZIP files in Later/ are deleted.
+Audio files in Later/ are not deleted.
+
+    --base  Address files are served from
+    --out   Output directory (default: Now/)
+    --now   Source directory (default: Later/)
 """
+
 import argparse
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -27,21 +37,57 @@ import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-OUT_NAME = 'Now'                                     # the folder Kodi reads (published)
-SOURCE_NAME = 'Later'                                # the folder with the source zips (upload only)
-DEFAULT_BASE = 'https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/Now/'
-TOO_BIG = 90 * 1024 * 1024                          # GitHub refuses files over 100 MB; stay well under
-REPOSITORY_SOURCE = os.path.join(HERE, '_source', 'repository.longtime')
-STAMP = (2026, 1, 1, 0, 0, 0)                        # a fixed date: the same files give the same zip
-JUNK = ('__MACOSX', '.DS_Store', '__pycache__', '.git', '.svn', 'Thumbs.db', '.pyc')
 
-# Directories under Now/ that are maintained outside the add-on ZIP build.
-# Keep these during cleanup so manually maintained assets, such as background audio,
-# are not deleted just because they do not correspond to an add-on ZIP in Later/.
+OUT_NAME = 'Now'
+SOURCE_NAME = 'Later'
+
+DEFAULT_BASE = (
+    'https://raw.githubusercontent.com/'
+    'FookYuuRai/LongTime/OnTheSide/Now/'
+)
+
+TOO_BIG = 90 * 1024 * 1024
+REPOSITORY_SOURCE = os.path.join(
+    HERE, '_source', 'repository.longtime'
+)
+
+STAMP = (2026, 1, 1, 0, 0, 0)
+
+JUNK = (
+    '__MACOSX',
+    '.DS_Store',
+    '__pycache__',
+    '.git',
+    '.svn',
+    'Thumbs.db',
+    '.pyc',
+)
+
+# Directories under Now/ maintained outside the add-on ZIP build.
 PRESERVED_OUTPUT_DIRS = {
     'repository.longtime',
     'io.page.background.track',
 }
+
+# Background audio configuration.
+AUDIO_FOLDER = 'io.page.background.track'
+
+AUDIO_TYPES = {
+    '.mp3': 'audio/mpeg',
+    '.opus': 'audio/ogg; codecs=opus',
+    '.m4a': 'audio/mp4',
+}
+
+# Accepted examples:
+#   27_aquatic-ambiance.opus
+#   28_rain-and-waves.mp3
+#   29_forest-at-night.m4a
+#
+# The number must be followed by an underscore and a filename.
+AUDIO_FILENAME_RE = re.compile(
+    r'^(?P<number>\d+)_.+\.(?P<extension>mp3|opus|m4a)$',
+    re.IGNORECASE,
+)
 
 
 class RepoError(Exception):
@@ -49,101 +95,322 @@ class RepoError(Exception):
 
 
 def addon_info(xml_text):
-    """(id, version) from the <addon ...> tag of an addon.xml."""
+    """Return (id, version) from the <addon ...> tag."""
     tag = re.search(r'<addon\b[^>]*>', xml_text, re.S)
+
     if not tag:
         raise RepoError('no <addon> tag in addon.xml')
+
     ident = re.search(r'\bid="([^"]+)"', tag.group(0))
     version = re.search(r'\bversion="([^"]+)"', tag.group(0))
+
     if not ident or not version:
-        raise RepoError('the <addon> tag has no id or version')
+        raise RepoError(
+            'the <addon> tag has no id or version'
+        )
+
     return ident.group(1), version.group(1)
 
 
 def _order(char):
     if char == '~':
-        return -1                                   # before everything, even the end of the version
+        return -1
+
     if char.isalpha():
         return ord(char)
+
     return ord(char) + 256
 
 
 def compare(a, b):
-    """-1, 0, 1: a is older than, the same as, newer than b. Like Kodi's own comparison (Debian style): numbers by
-    value, '~' before everything (1.1.1~beta2 is older than 1.1.1), letters after the end of the version
-    (1.1.1Beta2 is newer than 1.1.1)."""
+    """
+    Compare add-on versions using Kodi-style, Debian-like ordering.
+
+    Return:
+        -1 if a is older than b
+         0 if a and b are equivalent
+         1 if a is newer than b
+    """
     while a or b:
-        text_a, text_b = re.match(r'\D*', a).group(0), re.match(r'\D*', b).group(0)
-        a, b = a[len(text_a):], b[len(text_b):]
+        text_a = re.match(r'\D*', a).group(0)
+        text_b = re.match(r'\D*', b).group(0)
+
+        a = a[len(text_a):]
+        b = b[len(text_b):]
+
         for i in range(max(len(text_a), len(text_b))):
-            order_a = _order(text_a[i]) if i < len(text_a) else 0
-            order_b = _order(text_b[i]) if i < len(text_b) else 0
+            order_a = (
+                _order(text_a[i])
+                if i < len(text_a)
+                else 0
+            )
+            order_b = (
+                _order(text_b[i])
+                if i < len(text_b)
+                else 0
+            )
+
             if order_a != order_b:
                 return -1 if order_a < order_b else 1
-        num_a, num_b = re.match(r'\d*', a).group(0), re.match(r'\d*', b).group(0)
-        a, b = a[len(num_a):], b[len(num_b):]
+
+        num_a = re.match(r'\d*', a).group(0)
+        num_b = re.match(r'\d*', b).group(0)
+
+        a = a[len(num_a):]
+        b = b[len(num_b):]
+
         if int(num_a or 0) != int(num_b or 0):
-            return -1 if int(num_a or 0) < int(num_b or 0) else 1
+            return (
+                -1
+                if int(num_a or 0) < int(num_b or 0)
+                else 1
+            )
+
     return 0
 
 
 def body(xml_text):
-    """An addon.xml without its XML declaration, to go inside addons.xml."""
-    return re.sub(r'^\s*<\?xml[^>]*\?>\s*', '', xml_text).strip()
+    """Remove the XML declaration for inclusion in addons.xml."""
+    return re.sub(
+        r'^\s*<\?xml[^>]*\?>\s*',
+        '',
+        xml_text,
+    ).strip()
 
 
 def open_zip(path):
-    """(zipfile, id, version, addon.xml text) of an add-on zip, after checking it is clean."""
+    """
+    Return (zipfile, id, version, addon.xml text) after validation.
+    """
     try:
         z = zipfile.ZipFile(path)
     except zipfile.BadZipFile:
-        raise RepoError('{0}: not a zip file'.format(os.path.basename(path)))
-    names = [n for n in z.namelist() if not n.endswith('/')]
-    folders = {n.split('/')[0] for n in names}
-    if len(folders) != 1 or any('/' not in n for n in names):
-        raise RepoError('{0}: the zip must hold one top level folder and nothing outside it'.format(os.path.basename(path)))
+        raise RepoError(
+            '{0}: not a zip file'.format(
+                os.path.basename(path)
+            )
+        )
+
+    names = [
+        name
+        for name in z.namelist()
+        if not name.endswith('/')
+    ]
+
+    folders = {name.split('/')[0] for name in names}
+
+    if (
+        len(folders) != 1
+        or any('/' not in name for name in names)
+    ):
+        raise RepoError(
+            '{0}: the zip must hold one top level folder '
+            'and nothing outside it'.format(
+                os.path.basename(path)
+            )
+        )
+
     folder = folders.pop()
-    if '{0}/addon.xml'.format(folder) not in names:
-        raise RepoError('{0}: no addon.xml in {1}/'.format(os.path.basename(path), folder))
-    xml_text = z.read('{0}/addon.xml'.format(folder)).decode('utf-8')
+    addon_xml_path = '{0}/addon.xml'.format(folder)
+
+    if addon_xml_path not in names:
+        raise RepoError(
+            '{0}: no addon.xml in {1}/'.format(
+                os.path.basename(path),
+                folder,
+            )
+        )
+
+    xml_text = z.read(addon_xml_path).decode('utf-8')
     ident, version = addon_info(xml_text)
+
     if folder != ident:
-        raise RepoError('{0}: the folder inside is "{1}" but the add-on id is "{2}"'.format(
-            os.path.basename(path), folder, ident))
+        raise RepoError(
+            '{0}: the folder inside is "{1}" but the add-on '
+            'id is "{2}"'.format(
+                os.path.basename(path),
+                folder,
+                ident,
+            )
+        )
+
     for name in names:
-        if any(j in name.split('/') or name.endswith(j) for j in JUNK):
-            raise RepoError('{0}: contains {1}'.format(os.path.basename(path), name))
+        if any(
+            junk in name.split('/') or name.endswith(junk)
+            for junk in JUNK
+        ):
+            raise RepoError(
+                '{0}: contains {1}'.format(
+                    os.path.basename(path),
+                    name,
+                )
+            )
+
     return z, ident, version, xml_text
 
 
 def read_zip(path):
-    """(id, version, addon.xml text, {name: bytes}) of an add-on zip, after checking it is clean."""
+    """Return (id, version, addon.xml text, {name: bytes})."""
     z, ident, version, xml_text = open_zip(path)
-    return ident, version, xml_text, {n: z.read(n) for n in z.namelist() if not n.endswith('/')}
+
+    files = {
+        name: z.read(name)
+        for name in z.namelist()
+        if not name.endswith('/')
+    }
+
+    return ident, version, xml_text, files
 
 
 def assets_of(xml_text):
-    return re.findall(r'<(?:icon|fanart)>([^<]+)</', xml_text)
+    """Find icon and fanart paths declared in addon.xml."""
+    return re.findall(
+        r'<(?:icon|fanart)>([^<]+)</',
+        xml_text,
+    )
 
 
 def write_zip(path, folder, files):
+    """Write a reproducible ZIP."""
     if os.path.exists(path):
         os.remove(path)
-    with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as z:
+
+    with zipfile.ZipFile(
+        path,
+        'w',
+        zipfile.ZIP_DEFLATED,
+    ) as z:
         for name, data in files:
-            info = zipfile.ZipInfo('{0}/{1}'.format(folder, name), STAMP)
+            info = zipfile.ZipInfo(
+                '{0}/{1}'.format(folder, name),
+                STAMP,
+            )
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o644 << 16
             z.writestr(info, data)
 
 
 def clear_folder(folder):
+    """Remove and recreate a generated add-on folder."""
     if os.path.isdir(folder):
         shutil.rmtree(folder)
+
     os.makedirs(folder)
 
 
-# the NightShift skin's colours (colors/defaults.xml of skin.nightshift) for the listing pages
+def publish_background_audio(source, out):
+    """
+    Publish the highest-numbered supported audio file from source/.
+
+    Supported extensions:
+        .mp3
+        .opus
+        .m4a
+
+    Expected filename format:
+        NUMBER_name.extension
+
+    Examples:
+        27_aquatic-ambiance.opus
+        28_rain-and-waves.mp3
+        29_forest-at-night.m4a
+
+    The selected file keeps its original filename and extension.
+
+    Writes:
+        Now/io.page.background.track/<filename>
+        Now/io.page.background.track/current.json
+
+    If no matching audio file exists in source/, the existing published
+    audio is left untouched.
+    """
+    if not os.path.isdir(source):
+        print(
+            'background audio: source directory not found; '
+            'leaving published audio unchanged'
+        )
+        return None
+
+    candidates = []
+
+    for name in os.listdir(source):
+        path = os.path.join(source, name)
+
+        if not os.path.isfile(path):
+            continue
+
+        match = AUDIO_FILENAME_RE.fullmatch(name)
+
+        if not match:
+            continue
+
+        number = int(match.group('number'))
+        extension = os.path.splitext(name)[1].lower()
+
+        candidates.append(
+            (
+                number,
+                name.lower(),
+                name,
+                path,
+                extension,
+            )
+        )
+
+    if not candidates:
+        print(
+            'background audio: no numbered MP3, OPUS, or M4A '
+            'files found; leaving published audio unchanged'
+        )
+        return None
+
+    # Highest integer wins. If numbers tie, filename order breaks the tie.
+    candidates.sort(key=lambda item: (item[0], item[1], item[2]))
+
+    number, _, filename, source_path, extension = candidates[-1]
+
+    audio_dir = os.path.join(out, AUDIO_FOLDER)
+    os.makedirs(audio_dir, exist_ok=True)
+
+    # Remove older published tracks that match the numbered naming format.
+    # Unrelated files in this directory are left untouched.
+    for name in os.listdir(audio_dir):
+        path = os.path.join(audio_dir, name)
+
+        if (
+            os.path.isfile(path)
+            and AUDIO_FILENAME_RE.fullmatch(name)
+        ):
+            os.remove(path)
+
+    destination = os.path.join(audio_dir, filename)
+    shutil.copy2(source_path, destination)
+
+    manifest = {
+        'number': number,
+        'file': filename,
+        'type': AUDIO_TYPES[extension],
+    }
+
+    manifest_path = os.path.join(audio_dir, 'current.json')
+
+    with open(
+        manifest_path,
+        'w',
+        encoding='utf-8',
+        newline='\n',
+    ) as f:
+        json.dump(manifest, f, indent=2)
+        f.write('\n')
+
+    print(
+        'published background audio {0}'.format(filename)
+    )
+
+    return filename
+
+
+# The NightShift skin's colors for the listing pages.
 _CSS = """
 :root{--bg:#03050c;--panel:#071426;--header:#123b66;--text:#f0f6ff;--grey:#9cb0c9;--blue:#49c9ff;--focus:#35bfff;--pink:#ff5cbf;--line:rgba(53,191,255,.5)}
 *{box-sizing:border-box}
@@ -168,79 +435,206 @@ li a.file::before{content:"\\2193";color:var(--pink)}
 
 
 def _relative(target, folder):
-    return os.path.relpath(target, folder).replace(os.sep, '/')
+    return os.path.relpath(
+        target,
+        folder,
+    ).replace(os.sep, '/')
 
 
 def _listing(folder, entries, title, out):
-    """One themed page. Every entry is a plain <a href="name">name</a> on a line of its own: that is what Kodi's file
-    manager reads (href first in the tag, no other link in the page, nothing inside the link)."""
-    icon = os.path.join(out, 'skin.nightshift', 'resources', 'icon.png')
-    fanart = os.path.join(out, 'skin.nightshift', 'resources', 'fanart.jpg')
-    css = _CSS % {'fanart': ',url("{0}")'.format(_relative(fanart, folder)) if os.path.isfile(fanart) else ''}
-    lines = ['<!DOCTYPE html>', '<html lang="en"><head><meta charset="utf-8">',
-             '<meta name="viewport" content="width=device-width,initial-scale=1">', '<title>{0}</title>'.format(title),
-             '<style>{0}</style></head><body><div class="wrap"><div class="panel">'.format(css), '<div class="head">']
+    """
+    Write a themed index page.
+
+    Links remain simple because Kodi's file manager reads these pages.
+    """
+    icon = os.path.join(
+        out,
+        'skin.nightshift',
+        'resources',
+        'icon.png',
+    )
+
+    fanart = os.path.join(
+        out,
+        'skin.nightshift',
+        'resources',
+        'fanart.jpg',
+    )
+
+    css = _CSS % {
+        'fanart': (
+            ',url("{0}")'.format(_relative(fanart, folder))
+            if os.path.isfile(fanart)
+            else ''
+        )
+    }
+
+    lines = [
+        '<!DOCTYPE html>',
+        '<html lang="en"><head><meta charset="utf-8">',
+        '<meta name="viewport" content="width=device-width,initial-scale=1">',
+        '<title>{0}</title>'.format(title),
+        '<style>{0}</style></head><body>'
+        '<div class="wrap"><div class="panel">'.format(css),
+        '<div class="head">',
+    ]
+
     if os.path.isfile(icon):
-        lines.append('<img src="{0}" alt="">'.format(_relative(icon, folder)))
-    lines += ['<div><h1>LongTime</h1><p class="crumbs">{0}</p></div></div>'.format(title), '<ul>']
+        lines.append(
+            '<img src="{0}" alt="">'.format(
+                _relative(icon, folder)
+            )
+        )
+
+    lines += [
+        '<div><h1>LongTime</h1><p class="crumbs">{0}</p>'
+        '</div></div>'.format(title),
+        '<ul>',
+    ]
+
     for name, is_dir in entries:
-        lines.append('<li><a href="{0}{1}"{2}>{0}{1}</a></li>'.format(name, '/' if is_dir else '',
-                                                                       '' if is_dir else ' class="file"'))
-    lines += ['</ul>', '<div class="foot">Add-on repository for Kodi</div>', '</div></div></body></html>']
-    with open(os.path.join(folder, 'index.html'), 'w', encoding='utf-8', newline='\n') as f:
+        suffix = '/' if is_dir else ''
+        css_class = '' if is_dir else ' class="file"'
+
+        lines.append(
+            '<li><a href="{0}{1}"{2}>{0}{1}</a></li>'.format(
+                name,
+                suffix,
+                css_class,
+            )
+        )
+
+    lines += [
+        '</ul>',
+        '<div class="foot">Add-on repository for Kodi</div>',
+        '</div></div></body></html>',
+    ]
+
+    with open(
+        os.path.join(folder, 'index.html'),
+        'w',
+        encoding='utf-8',
+        newline='\n',
+    ) as f:
         f.write('\n'.join(lines) + '\n')
 
 
 def write_indexes(out):
-    """An index.html in out/ and in every folder below it: a list of links, so that a web address of the folder (GitHub
-    Pages serves index.html) can be browsed from Kodi's file manager. The raw address has no listing."""
+    """
+    Write index.html into out/ and every directory below it.
+    """
     for folder, dirs, files in os.walk(out):
         dirs.sort()
-        entries = [(d, True) for d in dirs] + [(f, False) for f in sorted(files) if f != 'index.html']
-        title = os.path.relpath(folder, os.path.dirname(out)).replace(os.sep, '/')
-        _listing(folder, entries, title.replace('/', ' / '), out)
+
+        entries = (
+            [(directory, True) for directory in dirs]
+            + [
+                (filename, False)
+                for filename in sorted(files)
+                if filename != 'index.html'
+            ]
+        )
+
+        title = os.path.relpath(
+            folder,
+            os.path.dirname(out),
+        ).replace(os.sep, '/')
+
+        _listing(
+            folder,
+            entries,
+            title.replace('/', ' / '),
+            out,
+        )
 
 
 def write_root_index(root, out):
-    """index.html at the top of the site: a link to the published files (Now/). Kodi does not read this page."""
-    entries = [(os.path.relpath(out, root).replace(os.sep, '/'), True)]
+    """Write the top-level website index."""
+    entries = [
+        (
+            os.path.relpath(out, root).replace(os.sep, '/'),
+            True,
+        )
+    ]
+
     _listing(root, entries, 'Add-ons', out)
 
 
 def prune_source(source, keep):
-    """Delete every zip in the source folder that is not one of the published ones (keep: set of paths). Runs only
-    after a successful build. Git history keeps the deleted copies."""
+    """
+    Remove superseded ZIP files after a successful build.
+
+    Non-ZIP files, including numbered audio tracks, are untouched.
+    """
     removed = []
+
     for name in sorted(os.listdir(source)):
         path = os.path.join(source, name)
-        if name.lower().endswith('.zip') and os.path.abspath(path) not in keep:
+
+        if (
+            name.lower().endswith('.zip')
+            and os.path.abspath(path) not in keep
+        ):
             os.remove(path)
             removed.append(name)
+
     return removed
 
 
 def build(base, out, source):
-    found = {}                                          # id -> (version, zip path, addon.xml text, files)
+    """Build the Kodi repository and publish the selected background track."""
+    found = {}
+
     for name in sorted(os.listdir(source)) if os.path.isdir(source) else []:
         if not name.endswith('.zip'):
             continue
+
         path = os.path.join(source, name)
+
         if os.path.getsize(path) > TOO_BIG:
-            raise RepoError('{0}: too big for a normal GitHub commit ({1} MB; the limit is 100 MB)'.format(
-                name, os.path.getsize(path) // (1024 * 1024)))
+            raise RepoError(
+                '{0}: too big for a normal GitHub commit '
+                '({1} MB; the limit is 100 MB)'.format(
+                    name,
+                    os.path.getsize(path) // (1024 * 1024),
+                )
+            )
+
         ident, version, xml_text, files = read_zip(path)
+
         if ident == 'repository.longtime':
-            raise RepoError('{0}: the id repository.longtime is the repository add-on itself'.format(name))
-        if ident not in found or compare(version, found[ident][0]) > 0:
-            found[ident] = (version, path, xml_text, files)
+            raise RepoError(
+                '{0}: the id repository.longtime is the '
+                'repository add-on itself'.format(name)
+            )
+
+        if (
+            ident not in found
+            or compare(version, found[ident][0]) > 0
+        ):
+            found[ident] = (
+                version,
+                path,
+                xml_text,
+                files,
+            )
+
         elif compare(version, found[ident][0]) == 0:
-            raise RepoError('{0}: version {1} of {2} is there twice'.format(name, version, ident))
+            raise RepoError(
+                '{0}: version {1} of {2} is there twice'.format(
+                    name,
+                    version,
+                    ident,
+                )
+            )
 
     os.makedirs(out, exist_ok=True)
 
-    # Preserve directories maintained manually rather than generated from Later/ add-on ZIPs.
+    # Preserve directories maintained manually rather than generated
+    # from add-on ZIPs.
     for entry in os.listdir(out):
         full = os.path.join(out, entry)
+
         if (
             os.path.isdir(full)
             and entry not in PRESERVED_OUTPUT_DIRS
@@ -249,55 +643,170 @@ def build(base, out, source):
             shutil.rmtree(full)
 
     listing = []
+
     for ident in sorted(found):
         version, path, xml_text, files = found[ident]
         folder = os.path.join(out, ident)
+
         clear_folder(folder)
-        shutil.copyfile(path, os.path.join(folder, '{0}-{1}.zip'.format(ident, version)))
-        for asset in assets_of(xml_text):                                    # what the add-on list shows
-            data = files.get('{0}/{1}'.format(ident, asset))
+
+        shutil.copyfile(
+            path,
+            os.path.join(
+                folder,
+                '{0}-{1}.zip'.format(ident, version),
+            ),
+        )
+
+        for asset in assets_of(xml_text):
+            data = files.get(
+                '{0}/{1}'.format(ident, asset)
+            )
+
             if data is not None:
                 target = os.path.join(folder, asset)
-                os.makedirs(os.path.dirname(target), exist_ok=True)
+                os.makedirs(
+                    os.path.dirname(target),
+                    exist_ok=True,
+                )
+
                 with open(target, 'wb') as f:
                     f.write(data)
+
         listing.append(body(xml_text))
 
-    with open(os.path.join(REPOSITORY_SOURCE, 'addon.xml'), 'rb') as f:
-        repository_xml = f.read().decode('utf-8').replace('@BASE@', base)
-    repository_id, repository_version = addon_info(repository_xml)
-    repository_folder = os.path.join(out, repository_id)
+    repository_xml_path = os.path.join(
+        REPOSITORY_SOURCE,
+        'addon.xml',
+    )
+
+    with open(repository_xml_path, 'rb') as f:
+        repository_xml = (
+            f.read()
+            .decode('utf-8')
+            .replace('@BASE@', base)
+        )
+
+    repository_id, repository_version = addon_info(
+        repository_xml
+    )
+
+    repository_folder = os.path.join(
+        out,
+        repository_id,
+    )
+
     clear_folder(repository_folder)
-    write_zip(os.path.join(repository_folder, '{0}-{1}.zip'.format(repository_id, repository_version)),
-              repository_id, [('addon.xml', repository_xml.encode('utf-8'))])
+
+    write_zip(
+        os.path.join(
+            repository_folder,
+            '{0}-{1}.zip'.format(
+                repository_id,
+                repository_version,
+            ),
+        ),
+        repository_id,
+        [
+            (
+                'addon.xml',
+                repository_xml.encode('utf-8'),
+            )
+        ],
+    )
+
     listing.append(body(repository_xml))
 
-    text = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<addons>\n{0}\n</addons>\n'.format('\n'.join(listing))
-    with open(os.path.join(out, 'addons.xml'), 'wb') as f:
+    text = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        '<addons>\n{0}\n</addons>\n'
+    ).format('\n'.join(listing))
+
+    with open(
+        os.path.join(out, 'addons.xml'),
+        'wb',
+    ) as f:
         f.write(text.encode('utf-8'))
-    with open(os.path.join(out, 'addons.xml.md5'), 'w') as f:
+
+    with open(
+        os.path.join(out, 'addons.xml.md5'),
+        'w',
+    ) as f:
         f.write(hashlib.md5(text.encode('utf-8')).hexdigest())
+
+    # Publish the newest numbered track before generating indexes,
+    # so the generated audio folder listing includes the selected file.
+    publish_background_audio(source, out)
+
     write_indexes(out)
-    keep = {os.path.abspath(found[i][1]) for i in found}
-    removed = prune_source(source, keep) if os.path.isdir(source) else []
-    return [(i, found[i][0]) for i in sorted(found)], (repository_id, repository_version), removed
+
+    keep = {
+        os.path.abspath(found[ident][1])
+        for ident in found
+    }
+
+    removed = (
+        prune_source(source, keep)
+        if os.path.isdir(source)
+        else []
+    )
+
+    return (
+        [
+            (ident, found[ident][0])
+            for ident in sorted(found)
+        ],
+        (repository_id, repository_version),
+        removed,
+    )
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--base', default=DEFAULT_BASE)
-    parser.add_argument('--out', default=os.path.join(ROOT, OUT_NAME))
-    parser.add_argument('--now', default=os.path.join(ROOT, SOURCE_NAME))
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    parser.add_argument(
+        '--base',
+        default=DEFAULT_BASE,
+    )
+
+    parser.add_argument(
+        '--out',
+        default=os.path.join(ROOT, OUT_NAME),
+    )
+
+    parser.add_argument(
+        '--now',
+        default=os.path.join(ROOT, SOURCE_NAME),
+    )
+
     args = parser.parse_args()
+
     try:
-        published, repository, removed = build(args.base if args.base.endswith('/') else args.base + '/',
-                                               args.out, args.now)
-    except RepoError as e:
-        sys.exit('error: {0}'.format(e))
+        published, repository, removed = build(
+            args.base if args.base.endswith('/') else args.base + '/',
+            args.out,
+            args.now,
+        )
+    except RepoError as error:
+        sys.exit('error: {0}'.format(error))
+
     if os.path.abspath(args.out) == os.path.join(ROOT, OUT_NAME):
         write_root_index(ROOT, args.out)
+
     for ident, version in published:
         print('published {0} {1}'.format(ident, version))
+
     for name in removed:
-        print('removed old zip from {0}: {1}'.format(SOURCE_NAME, name))
-    print('repository add-on {0} {1}'.format(*repository))
+        print(
+            'removed old zip from {0}: {1}'.format(
+                SOURCE_NAME,
+                name,
+            )
+        )
+
+    print(
+        'repository add-on {0} {1}'.format(*repository)
+    )
