@@ -113,34 +113,45 @@ jobs:
                   return True
               return False
 
-          # Inspect the archive dynamically. There is deliberately no expected
-          # number of audio files: each release may add or remove tracks. The
-          # resulting catalogue, settings toggles, and labels are rebuilt below.
+          # Detect root-level audio OR audio files inside exactly one common
+          # wrapper directory (for example ambience-audio-opus96/). The
+          # catalogue stores basenames because builtin_audio.py flattens that
+          # wrapper when it installs the files into Kodi's managed data folder.
           with zipfile.ZipFile(TEMP_PACK) as pack:
               bad_member = pack.testzip()
               if bad_member:
                   raise SystemExit(f"The audio pack failed CRC validation at: {bad_member}")
 
-              audio_names = []
-              nested_audio = []
+              audio_entries = []
               for info in pack.infolist():
-                  name = info.filename.replace("\\", "/")
-                  if info.is_dir() or is_junk_member(name):
+                  raw_name = info.filename.replace("\\", "/")
+                  if info.is_dir() or is_junk_member(raw_name):
                       continue
-                  if Path(name).suffix.lower() not in AUDIO_EXTENSIONS:
+                  parts = raw_name.split("/")
+                  if raw_name.startswith("/") or any(part in ("", ".", "..") for part in parts):
+                      raise SystemExit(f"Unsafe path in ambience ZIP: {info.filename}")
+                  basename = parts[-1]
+                  if Path(basename).suffix.lower() not in AUDIO_EXTENSIONS:
                       continue
-                  if "/" in name:
-                      nested_audio.append(name)
+                  if len(parts) == 1:
+                      wrapper = None
+                  elif len(parts) == 2:
+                      wrapper = parts[0]
                   else:
-                      audio_names.append(name)
+                      raise SystemExit(
+                          "Audio files may be at ZIP root or one folder deep only: " + raw_name
+                      )
+                  audio_entries.append((basename, wrapper, raw_name))
 
-          if nested_audio:
+          if not audio_entries:
+              raise SystemExit("The ambience ZIP contains no supported audio files.")
+          layouts = {wrapper for _basename, wrapper, _raw_name in audio_entries}
+          if len(layouts) != 1:
               raise SystemExit(
-                  "The built-in audio installer expects audio files at the ZIP root; "
-                  "these audio files are nested in folders: " + ", ".join(nested_audio)
+                  "Audio files must all be at ZIP root or share exactly one top-level folder; found: "
+                  + ", ".join(sorted("<root>" if x is None else x for x in layouts))
               )
-          if not audio_names:
-              raise SystemExit("The ambience ZIP contains no supported audio files at its root.")
+          audio_names = [basename for basename, _wrapper, _raw_name in audio_entries]
           if len({name.casefold() for name in audio_names}) != len(audio_names):
               raise SystemExit("The ambience ZIP contains duplicate audio filenames (case-insensitive).")
 
