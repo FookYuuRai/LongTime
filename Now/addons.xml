@@ -28,13 +28,13 @@
         <news>Check the Changelog in Tools &gt; Changelog &amp; Log Utils[/COLOR]</news>
     </extension>
 </addon>
-<addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.4.9" provider-name="Custom">
+<addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.4.10" provider-name="Custom">
   <requires><import addon="xbmc.python" version="3.0.1"/></requires>
   <extension point="xbmc.service" library="service.py" start="startup"/>
   <extension point="xbmc.python.script" library="folders.py"/>
   <extension point="xbmc.addon.metadata">
     <summary lang="en_GB">Plays the built-in background tracks (each can be switched off), plus music from folders you add, while browsing the Nightshift skin.</summary>
-    <description lang="en_GB">Plays the current built-in track catalogue while the Nightshift skin is active. In the add-on settings every built-in track has its own on/off switch, and you can add your own music folders (subfolders are included), remove them, and turn the built-in tracks or shuffle on or off. The built-in audio pack refreshes when its SHA-256 changes, including when tracks are replaced under the same filename; tracks removed from a newer pack are cleaned up after successful installation. Built-in tracks remain unavailable to playback until the complete current pack has been checksum-verified and every catalogue file is installed. It yields to normal audio/video playback and restarts ambient music when playback ends. A bundled libffmpeg can convert the music of your folders to Opus 96 kbps.</description>
+    <description lang="en_GB">Plays the current built-in track catalogue while the Nightshift skin is active. In the add-on settings every built-in track has its own on/off switch, and you can add your own music folders (subfolders are included), remove them, and turn the built-in tracks or shuffle on or off. The built-in audio pack refreshes when its SHA-256 changes, including when tracks are replaced under the same filename. Audio packs may contain tracks at the ZIP root or inside one common top-level folder; files are installed flat into the managed audio folder; tracks removed from a newer pack are cleaned up after successful installation. Built-in tracks remain unavailable to playback until the complete current pack has been checksum-verified and every catalogue file is installed. It yields to normal audio/video playback and restarts ambient music when playback ends. A bundled libffmpeg can convert the music of your folders to Opus 96 kbps.</description>
     <platform>all</platform>
     <license>Custom personal-use companion to Nightshift</license>
   </extension>
