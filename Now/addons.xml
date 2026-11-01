@@ -321,9 +321,9 @@
 	</requires>
 	<extension point="xbmc.addon.repository" name="LongTime">
 		<dir>
-			<info compressed="false">https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/repo/addons.xml</info>
-			<checksum>https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/repo/addons.xml.md5</checksum>
-			<datadir zip="true">https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/repo/</datadir>
+			<info compressed="false">https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/Now/addons.xml</info>
+			<checksum>https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/Now/addons.xml.md5</checksum>
+			<datadir zip="true">https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/Now/</datadir>
 		</dir>
 	</extension>
 	<extension point="xbmc.addon.metadata">
