@@ -468,7 +468,7 @@ _CSS = """
 *{box-sizing:border-box}
 html{background:var(--bg)}
 body{margin:0;min-height:100vh;color:var(--text);text-shadow:0 1px 4px rgba(0,0,0,.95);font:16px/1.45 "Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:linear-gradient(rgba(3,5,12,.28),rgba(3,5,12,.42))__FANART__,var(--bg);background-size:cover;background-attachment:fixed;background-position:center}
-.wrap{max-width:920px;margin:0 auto;padding:28px 16px 40px}
+.wrap{max-width:920px;margin:0 auto;padding:28px 16px 150px}
 .panel{background:rgba(7,20,38,.3);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);border:1px solid var(--line);border-radius:6px;box-shadow:0 0 28px rgba(53,191,255,.14);overflow:hidden}
 .head{display:flex;align-items:center;gap:14px;padding:14px 18px;background:rgba(18,59,102,.3);border-bottom:1px solid var(--line)}
 .head img{width:44px;height:44px;border-radius:8px}
@@ -483,10 +483,13 @@ li a::before{content:"\\25B8";display:inline-block;width:1.4em;color:var(--blue)
 li a.file::before{content:"\\2193";color:var(--pink)}
 .foot{padding:10px 18px;color:var(--grey);font-size:.8rem;border-top:1px solid var(--line)}
 @media (max-width:520px){.wrap{padding:12px 8px 24px}.head h1{font-size:1.05rem}}
-.audio-player{margin:14px;padding:14px;border:1px solid rgba(53,191,255,.35);border-radius:6px;background:rgba(3,5,12,.55)}
-.audio-player audio{width:100%;margin:8px 0}
-.audio-player button{padding:10px 16px;border:1px solid #35bfff;border-radius:4px;background:#123b66;color:#fff;font-size:15px;cursor:pointer}
+.audio-player{position:fixed;z-index:10000;left:50%;bottom:10px;transform:translateX(-50%);width:calc(100% - 24px);max-width:920px;margin:0;padding:10px 14px;border:1px solid rgba(53,191,255,.5);border-radius:6px;background:rgba(3,5,12,.94);box-shadow:0 0 20px rgba(53,191,255,.2);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 12px}
+.audio-player strong{color:var(--blue)}
+.audio-player p{grid-column:1/-1;margin:0;color:var(--grey);font-size:.85rem;overflow-wrap:anywhere}
+.audio-player audio{width:100%;min-width:0;margin:0}
+.audio-player button{padding:10px 16px;border:1px solid #35bfff;border-radius:4px;background:#123b66;color:#fff;font-size:15px;cursor:pointer;white-space:nowrap}
 .audio-player button:disabled{opacity:.55;cursor:wait}
+@media (max-width:520px){.wrap{padding-bottom:190px}.audio-player{grid-template-columns:1fr;bottom:6px;gap:8px}.audio-player button{width:100%}}
 """
 
 
@@ -499,12 +502,13 @@ def _relative(target, folder):
 
 def _listing(folder, entries, title, out):
     """
-    Write a themed index page.
+    Write a themed index page with one site-wide background audio player.
 
-    The background audio folder receives a looping player that loads
-    the selected file from current.json.
+    The player is present on the root page, Now/, and every folder below
+    Now/. Directory navigation is handled in-page so the audio element
+    is not destroyed when the visitor browses between folders.
 
-    Other repository listings retain their simple Kodi-compatible links.
+    File links remain ordinary links for Kodi's file manager.
     """
     icon = os.path.join(
         out,
@@ -533,13 +537,24 @@ def _listing(folder, entries, title, out):
         fanart_background,
     )
 
+    audio_dir = os.path.join(out, AUDIO_FOLDER)
+    audio_folder_url = _relative(audio_dir, folder).replace(os.sep, '/')
+    if not audio_folder_url.endswith('/'):
+        audio_folder_url += '/'
+
     lines = [
         '<!DOCTYPE html>',
         '<html lang="en"><head><meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width,initial-scale=1">',
         '<title>{0}</title>'.format(title),
-        '<style>{0}</style></head><body>'
-        '<div class="wrap"><div class="panel">'.format(css),
+        '<style>{0}</style></head><body>'.format(css),
+        '<section class="audio-player" aria-label="Site background audio">',
+        '  <strong>LongTime background audio</strong>',
+        '  <p id="audio-status" role="status">Loading selected track...</p>',
+        '  <audio id="background-audio" controls loop preload="none"></audio>',
+        '  <button id="audio-start" type="button" disabled>Preparing audio...</button>',
+        '</section>',
+        '<div class="wrap"><div class="panel">',
         '<div class="head">',
     ]
 
@@ -553,209 +568,8 @@ def _listing(folder, entries, title, out):
     lines += [
         '<div><h1>LongTime</h1><p class="crumbs">{0}</p>'
         '</div></div>'.format(title),
+        '<ul>',
     ]
-
-    # Only add the player to the background-audio folder page.
-    audio_page = (
-        os.path.abspath(folder)
-        == os.path.abspath(os.path.join(out, AUDIO_FOLDER))
-    )
-
-    if audio_page:
-        lines.append("""
-<section class="audio-player">
-  <strong style="color:#49c9ff">Background audio</strong>
-  <p id="audio-status" role="status" style="color:#9cb0c9;margin:8px 0">
-    Loading selected track...
-  </p>
-
-  <audio
-    id="background-audio"
-    controls
-    loop
-    preload="auto">
-  </audio>
-
-  <button id="audio-start" type="button" disabled>
-    Preparing audio...
-  </button>
-</section>
-
-<script>
-(function () {
-    "use strict";
-
-    const audio = document.getElementById("background-audio");
-    const button = document.getElementById("audio-start");
-    const status = document.getElementById("audio-status");
-
-    let trackReady = false;
-
-    function showStartButton(message) {
-        status.textContent = message;
-        button.hidden = false;
-        button.disabled = false;
-        button.textContent = "Start background audio";
-    }
-
-    async function startPlayback() {
-        if (!trackReady) {
-            return;
-        }
-
-        try {
-            await audio.play();
-
-            status.textContent = "Background audio is playing.";
-            button.hidden = true;
-
-        } catch (error) {
-            console.warn("Audio playback was not started:", error);
-
-            if (error.name === "NotAllowedError") {
-                showStartButton(
-                    "Your browser blocked automatic sound. Tap Start background audio."
-                );
-            } else {
-                showStartButton(
-                    "Playback could not start: " + error.message
-                );
-            }
-        }
-    }
-
-    audio.addEventListener("error", function () {
-        const mediaError = audio.error;
-
-        let detail = "The browser could not load or decode the audio.";
-
-        if (mediaError) {
-            detail += " Media error code: " + mediaError.code;
-        }
-
-        status.textContent = detail;
-        showStartButton(detail);
-    });
-
-    audio.addEventListener("playing", function () {
-        status.textContent = "Background audio is playing.";
-        button.hidden = true;
-    });
-
-    audio.addEventListener("pause", function () {
-        if (!audio.ended && trackReady) {
-            button.hidden = false;
-            button.disabled = false;
-            button.textContent = "Resume background audio";
-            status.textContent = "Background audio is paused.";
-        }
-    });
-
-    button.addEventListener("click", function () {
-        startPlayback();
-    });
-
-    async function loadBackgroundAudio() {
-        status.textContent = "Loading audio manifest...";
-
-        const response = await fetch(
-            "current.json?v=" + Date.now(),
-            { cache: "no-store" }
-        );
-
-        if (!response.ok) {
-            throw new Error(
-                "Could not load current.json: HTTP " + response.status
-            );
-        }
-
-        const track = await response.json();
-
-        if (
-            typeof track.file !== "string" ||
-            track.file.includes("/") ||
-            track.file.includes(String.fromCharCode(92)) ||
-            !/^\\d+_.+\\.(mp3|opus|m4a)$/i.test(track.file)
-        ) {
-            throw new Error(
-                "Invalid audio filename in current.json"
-            );
-        }
-
-        const expectedType = {
-            mp3: "audio/mpeg",
-            opus: "audio/ogg; codecs=opus",
-            m4a: "audio/mp4"
-        };
-
-        const extension = track.file
-            .split(".")
-            .pop()
-            .toLowerCase();
-
-        if (!expectedType[extension]) {
-            throw new Error("Unsupported audio extension.");
-        }
-
-        audio.src = encodeURIComponent(track.file);
-        audio.load();
-
-        status.textContent = "Selected track: " + track.file;
-
-        // Wait until the browser has enough media information.
-        await new Promise(function (resolve, reject) {
-            if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-                resolve();
-                return;
-            }
-
-            function onReady() {
-                cleanup();
-                resolve();
-            }
-
-            function onError() {
-                cleanup();
-                reject(
-                    new Error("The browser could not decode this audio file.")
-                );
-            }
-
-            function cleanup() {
-                audio.removeEventListener("canplay", onReady);
-                audio.removeEventListener("error", onError);
-            }
-
-            audio.addEventListener("canplay", onReady, { once: true });
-            audio.addEventListener("error", onError, { once: true });
-        });
-
-        trackReady = true;
-
-        button.disabled = false;
-        button.textContent = "Start background audio";
-
-        status.textContent =
-            "Ready: " + track.file + ". Attempting autoplay...";
-
-        // Audible autoplay is subject to browser permission.
-        await startPlayback();
-    }
-
-    loadBackgroundAudio().catch(function (error) {
-        console.error("Background audio setup failed:", error);
-
-        status.textContent =
-            "Audio setup failed: " + error.message;
-
-        button.disabled = true;
-        button.textContent = "Audio unavailable";
-    });
-})();
-</script>
-""")
-
-    lines.append('<ul>')
 
     for name, is_dir in entries:
         suffix = '/' if is_dir else ''
@@ -772,7 +586,172 @@ def _listing(folder, entries, title, out):
     lines += [
         '</ul>',
         '<div class="foot">Add-on repository for Kodi</div>',
-        '</div></div></body></html>',
+        '</div></div>',
+        '<script>',
+        '(function () {',
+        '    "use strict";',
+        '',
+        '    const audio = document.getElementById("background-audio");',
+        '    const button = document.getElementById("audio-start");',
+        '    const status = document.getElementById("audio-status");',
+        '    const audioFolder = {0};'.format(json.dumps(audio_folder_url)),
+        '    let trackReady = false;',
+        '    let navigationNumber = 0;',
+        '',
+        '    function showStartButton(message) {',
+        '        status.textContent = message;',
+        '        button.hidden = false;',
+        '        button.disabled = false;',
+        '        button.textContent = "Start background audio";',
+        '    }',
+        '',
+        '    async function startPlayback() {',
+        '        if (!trackReady) return;',
+        '        try {',
+        '            await audio.play();',
+        '            status.textContent = "Background audio is playing while you browse folders.";',
+        '            button.hidden = true;',
+        '        } catch (error) {',
+        '            console.warn("Background audio autoplay was blocked:", error);',
+        '            if (error.name === "NotAllowedError") {',
+        '                showStartButton("Tap Start once to enable background audio while browsing this site.");',
+        '            } else {',
+        '                showStartButton("Playback failed: " + error.message);',
+        '            }',
+        '        }',
+        '    }',
+        '',
+        '    button.addEventListener("click", function () {',
+        '        // audio.play() is invoked directly from this user gesture.',
+        '        startPlayback();',
+        '    });',
+        '',
+        '    audio.addEventListener("playing", function () {',
+        '        status.textContent = "Background audio is playing while you browse folders.";',
+        '        button.hidden = true;',
+        '    });',
+        '',
+        '    audio.addEventListener("pause", function () {',
+        '        if (trackReady && !audio.ended) {',
+        '            button.hidden = false;',
+        '            button.disabled = false;',
+        '            button.textContent = "Resume background audio";',
+        '            status.textContent = "Background audio is paused.";',
+        '        }',
+        '    });',
+        '',
+        '    audio.addEventListener("error", function () {',
+        '        const code = audio.error ? audio.error.code : "unknown";',
+        '        showStartButton("The audio file could not be loaded or decoded (media error " + code + ").");',
+        '    });',
+        '',
+        '    async function loadBackgroundAudio() {',
+        '        const audioBase = new URL(audioFolder, document.baseURI);',
+        '        const manifestUrl = new URL("current.json?v=" + Date.now(), audioBase);',
+        '        const response = await fetch(manifestUrl.href, { cache: "no-store" });',
+        '        if (!response.ok) {',
+        '            throw new Error("Could not load current.json: HTTP " + response.status);',
+        '        }',
+        '',
+        '        const track = await response.json();',
+        '        if (',
+        '            typeof track.file !== "string" ||',
+        '            track.file.includes("/") ||',
+        '            track.file.includes(String.fromCharCode(92)) ||',
+        '            !/^\\d+_.+\\.(mp3|opus|m4a)$/i.test(track.file)',
+        '        ) {',
+        '            throw new Error("Invalid audio filename in current.json");',
+        '        }',
+        '',
+        '        const fileUrl = new URL(encodeURIComponent(track.file), audioBase);',
+        '        fileUrl.searchParams.set("v", String(track.number || "current"));',
+        '        audio.src = fileUrl.href;',
+        '        audio.preload = "auto";',
+        '        audio.load();',
+        '',
+        '        status.textContent = "Selected track: " + track.file;',
+        '        await new Promise(function (resolve, reject) {',
+        '            if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {',
+        '                resolve();',
+        '                return;',
+        '            }',
+        '            function cleanup() {',
+        '                audio.removeEventListener("canplay", onReady);',
+        '                audio.removeEventListener("error", onError);',
+        '            }',
+        '            function onReady() { cleanup(); resolve(); }',
+        '            function onError() { cleanup(); reject(new Error("The browser could not decode the audio file.")); }',
+        '            audio.addEventListener("canplay", onReady, { once: true });',
+        '            audio.addEventListener("error", onError, { once: true });',
+        '        });',
+        '',
+        '        trackReady = true;',
+        '        button.disabled = false;',
+        '        button.textContent = "Start background audio";',
+        '        status.textContent = "Ready: " + track.file + ". Attempting autoplay...";',
+        '        await startPlayback();',
+        '    }',
+        '',
+        '    async function navigateDirectory(targetUrl, addHistory) {',
+        '        const requestNumber = ++navigationNumber;',
+        '        const response = await fetch(targetUrl.href, { cache: "no-cache" });',
+        '        if (!response.ok) throw new Error("Folder request failed: HTTP " + response.status);',
+        '        const html = await response.text();',
+        '        const nextDocument = new DOMParser().parseFromString(html, "text/html");',
+        '        const nextPanel = nextDocument.querySelector(".panel");',
+        '        const currentPanel = document.querySelector(".panel");',
+        '        if (!nextPanel || !currentPanel) throw new Error("Folder page did not contain a repository listing.");',
+        '        if (requestNumber !== navigationNumber) return;',
+        '',
+        '        // Keep the audio dock and audio element alive; replace only the folder listing.',
+        '        const nextStyle = nextDocument.querySelector("style");',
+        '        const currentStyle = document.querySelector("style");',
+        '        // Resolve page-relative links and images against the folder being opened.',
+        '        nextPanel.querySelectorAll("a[href], img[src]").forEach(function (element) {',
+        '            const attribute = element.hasAttribute("href") ? "href" : "src";',
+        '            element.setAttribute(attribute, new URL(element.getAttribute(attribute), targetUrl).href);',
+        '        });',
+        '        if (nextStyle && currentStyle) {',
+        '            currentStyle.textContent = nextStyle.textContent.replace(/url[(]"(.*?)"[)]/g, function (match, path) {',
+        '                return "url(\\\"" + new URL(path, targetUrl).href + "\\\")";',
+        '            });',
+        '        }',
+        '        currentPanel.innerHTML = nextPanel.innerHTML;',
+        '        document.title = nextDocument.title || "LongTime";',
+        '        if (addHistory) history.pushState({ folder: targetUrl.href }, "", targetUrl.href);',
+        '        window.scrollTo(0, 0);',
+        '    }',
+        '',
+        '    document.addEventListener("click", function (event) {',
+        '        const link = event.target.closest ? event.target.closest("a") : null;',
+        '        if (!link || event.defaultPrevented || event.button !== 0) return;',
+        '        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;',
+        '        if (link.hasAttribute("download") || (link.target && link.target !== "_self")) return;',
+        '        let targetUrl;',
+        '        try { targetUrl = new URL(link.href, document.baseURI); } catch (_) { return; }',
+        '        if (targetUrl.origin !== location.origin || !targetUrl.pathname.endsWith("/")) return;',
+        '        event.preventDefault();',
+        '        navigateDirectory(targetUrl, true).catch(function (error) {',
+        '            console.error("Folder navigation failed; loading normally:", error);',
+        '            location.assign(targetUrl.href);',
+        '        });',
+        '    });',
+        '',
+        '    window.addEventListener("popstate", function () {',
+        '        const targetUrl = new URL(location.href);',
+        '        navigateDirectory(targetUrl, false).catch(function (error) {',
+        '            console.error("Could not restore folder from browser history:", error);',
+        '            location.reload();',
+        '        });',
+        '    });',
+        '',
+        '    loadBackgroundAudio().catch(function (error) {',
+        '        console.error("Background audio setup failed:", error);',
+        '        showStartButton("Audio setup failed: " + error.message);',
+        '    });',
+        '})();',
+        '</script>',
+        '</body></html>',
     ]
 
     with open(
