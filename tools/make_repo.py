@@ -21,7 +21,6 @@ import zipfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 DEFAULT_BASE = 'https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/repo/'
-NOW_URL = 'https://github.com/FookYuuRai/LongTime/tree/OnTheSide/now'
 TOO_BIG = 90 * 1024 * 1024                          # GitHub refuses files over 100 MB; stay well under
 REPOSITORY_SOURCE = os.path.join(HERE, '_source', 'repository.longtime')
 STAMP = (2026, 1, 1, 0, 0, 0)                        # a fixed date: the same files give the same zip
@@ -146,7 +145,6 @@ li a:hover,li a:focus{background:rgba(53,191,255,.1);color:#fff;border-color:var
 li a.file:hover,li a.file:focus{border-color:var(--pink);background:rgba(255,92,191,.1);box-shadow:0 0 5px var(--pink),0 0 16px rgba(255,92,191,.5),inset 0 0 10px rgba(255,92,191,.22);text-shadow:0 0 6px rgba(255,92,191,.75)}
 li a::before{content:"\\25B8";display:inline-block;width:1.4em;color:var(--blue)}
 li a.file::before{content:"\\2193";color:var(--pink)}
-li a.ext::before{content:"\\2197";color:var(--grey)}
 .foot{padding:10px 18px;color:var(--grey);font-size:.8rem;border-top:1px solid var(--line)}
 @media (max-width:520px){.wrap{padding:12px 8px 24px}.head h1{font-size:1.05rem}}
 """
@@ -156,7 +154,7 @@ def _relative(target, folder):
     return os.path.relpath(target, folder).replace(os.sep, '/')
 
 
-def _listing(folder, entries, title, out, extra=()):
+def _listing(folder, entries, title, out):
     """One themed page. Every entry is a plain <a href="name">name</a> on a line of its own: that is what Kodi's file
     manager reads (href first in the tag, no other link in the page, nothing inside the link)."""
     icon = os.path.join(out, 'skin.nightshift', 'resources', 'icon.png')
@@ -171,8 +169,6 @@ def _listing(folder, entries, title, out, extra=()):
     for name, is_dir in entries:
         lines.append('<li><a href="{0}{1}"{2}>{0}{1}</a></li>'.format(name, '/' if is_dir else '',
                                                                        '' if is_dir else ' class="file"'))
-    for href, label, cls in extra:
-        lines.append('<li><a href="{0}" class="{1}" target="_blank" rel="noopener">{2}</a></li>'.format(href, cls, label))
     lines += ['</ul>', '<div class="foot">Add-on repository for Kodi</div>', '</div></div></body></html>']
     with open(os.path.join(folder, 'index.html'), 'w', encoding='utf-8', newline='\n') as f:
         f.write('\n'.join(lines) + '\n')
@@ -189,12 +185,9 @@ def write_indexes(out):
 
 
 def write_root_index(root, out):
-    """index.html at the top of the site: a link to the folder with the repository files, and to now/ on GitHub
-    (Kodi's file manager ignores links that contain a path, so a direct link to the repository add-on's zip would
-    not show). Kodi does not read this page."""
+    """index.html at the top of the site: a link to the folder with the repository files. Kodi does not read this page."""
     rel = os.path.relpath(out, root).replace(os.sep, '/')
-    _listing(root, [(rel, True)], 'Add-ons', out,
-             extra=[(NOW_URL, 'now/ (source zips, on GitHub)', 'ext')])
+    _listing(root, [(rel, True)], 'Add-ons', out)
 
 
 def build(base, out, source):
