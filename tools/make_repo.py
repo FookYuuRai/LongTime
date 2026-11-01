@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-Builds the files Kodi reads (the now/ folder) from the add-on zips in later/.
+Builds the files Kodi reads (the Now/ folder) from the add-on zips in Later/.
 
-Put any number of add-on zips in later/ (each zip: one top level folder named exactly like the add-on id, with
+Put any number of add-on zips in Later/ (each zip: one top level folder named exactly like the add-on id, with
 addon.xml inside), run `python3 tools/make_repo.py`, commit, push. For every add-on id the zip with the highest
-version is published as now/<id>/<id>-<version>.zip, with its icon and fanart, and listed in now/addons.xml with
-now/addons.xml.md5. The zip of the small repository add-on (the one Kodi installs once) is built as well.
+version is published as Now/<id>/<id>-<version>.zip, with its icon and fanart, and listed in Now/addons.xml with
+Now/addons.xml.md5. The zip of the small repository add-on (the one Kodi installs once) is built as well.
 
-Also written: index.html pages for browsing on the site (the root, now/ and each folder below it, and later/, which
-lists the zips waiting to be published). Those pages only link to files on this same site.
+Also written: index.html pages for browsing on the site (the root, Now/ and each folder below it). Those pages only
+link to files on this same site. Later/ is the upload folder only; no page is written for it.
 
   --base  the address the files are served from (default: this repository's raw files)
-  --out   where the files are written (default: now/)
-  --now   the folder with the source zips (default: later/)
+  --out   where the files are written (default: Now/)
+  --now   the folder with the source zips (default: Later/)
 """
 import argparse
 import hashlib
@@ -25,7 +25,7 @@ import zipfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT_NAME = 'Now'                                     # the folder Kodi reads (published)
-SOURCE_NAME = 'Later'                                # the folder with the source zips
+SOURCE_NAME = 'Later'                                # the folder with the source zips (upload only)
 DEFAULT_BASE = 'https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/Now/'
 TOO_BIG = 90 * 1024 * 1024                          # GitHub refuses files over 100 MB; stay well under
 REPOSITORY_SOURCE = os.path.join(HERE, '_source', 'repository.longtime')
@@ -190,21 +190,10 @@ def write_indexes(out):
         _listing(folder, entries, title.replace('/', ' / '), out)
 
 
-def write_root_index(root, out, source_dir):
-    """index.html at the top of the site: links to the published files (now/) and to the zips waiting in later/.
-    Kodi's file manager ignores links that contain a path, so the links are folders of this site. Kodi does not read
-    this page."""
+def write_root_index(root, out):
+    """index.html at the top of the site: a link to the published files (Now/). Kodi does not read this page."""
     entries = [(os.path.relpath(out, root).replace(os.sep, '/'), True)]
-    if os.path.isdir(source_dir):
-        entries.append((os.path.relpath(source_dir, root).replace(os.sep, '/'), True))
     _listing(root, entries, 'Add-ons', out)
-
-
-def write_source_index(source_dir, out):
-    """index.html in later/: the add-on zips waiting to be published, as links to the zips on this site. Zips that are
-    not the newest version of their add-on stay listed until they are removed from later/."""
-    zips = sorted(n for n in os.listdir(source_dir) if n.lower().endswith('.zip'))
-    _listing(source_dir, [(n, False) for n in zips], SOURCE_NAME, out)
 
 
 def build(base, out, source):
@@ -273,9 +262,7 @@ if __name__ == '__main__':
     except RepoError as e:
         sys.exit('error: {0}'.format(e))
     if os.path.abspath(args.out) == os.path.join(ROOT, OUT_NAME):
-        write_root_index(ROOT, args.out, args.now)
-    if os.path.abspath(args.now) == os.path.join(ROOT, SOURCE_NAME) and os.path.isdir(args.now):
-        write_source_index(args.now, args.out)
+        write_root_index(ROOT, args.out)
     for ident, version in published:
         print('published {0} {1}'.format(ident, version))
     print('repository add-on {0} {1}'.format(*repository))
