@@ -11,7 +11,6 @@
     :root {
       --bg: #03050c;
       --panel: #071426;
-      --header: #123b66;
       --text: #f0f6ff;
       --grey: #9cb0c9;
       --blue: #49c9ff;
@@ -22,9 +21,7 @@
       --page-gutter: clamp(8px, 3vw, 24px);
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     html {
       min-height: 100%;
@@ -41,12 +38,11 @@
       text-shadow: 0 1px 4px rgba(0,0,0,.95);
       font: 16px/1.45 "Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
 
-      /* Original background: intentionally preserved. */
-      background: linear-gradient(rgba(3,5,12,.28),rgba(3,5,12,.42)),url("Now/skin.nightshift/resources/fanart.jpg"),var(--bg);
-      background-size: cover;
-      background-attachment: fixed;
-      background-position: center;
-      background-repeat: no-repeat;
+      /* Original background preserved. */
+      background:linear-gradient(rgba(3,5,12,.28),rgba(3,5,12,.42)),url("Now/skin.nightshift/resources/fanart.jpg"),var(--bg);
+      background-size:cover;
+      background-attachment:fixed;
+      background-position:center;
     }
 
     .wrap {
@@ -76,7 +72,6 @@
       padding: 14px 18px;
       background: rgba(18,59,102,.3);
       border-bottom: 1px solid var(--line);
-      min-width: 0;
     }
 
     .head img {
@@ -100,70 +95,8 @@
       margin: 0;
       color: var(--grey);
       font-size: .9rem;
-      overflow-wrap: anywhere;
     }
 
-    ul {
-      list-style: none;
-      margin: 0;
-      padding: 6px;
-    }
-
-    li {
-      margin: 0;
-    }
-
-    li a {
-      display: block;
-      padding: 11px 14px;
-      margin: 3px 0;
-      border-radius: 4px;
-      border: 1px solid rgba(53,191,255,.12);
-      background: rgba(3,5,12,.3);
-      color: var(--text);
-      text-decoration: none;
-      overflow-wrap: anywhere;
-      -webkit-tap-highlight-color: transparent;
-      transition: box-shadow .12s, border-color .12s, background .12s;
-    }
-
-    li a:hover,
-    li a:focus-visible {
-      background: rgba(53,191,255,.1);
-      color: #fff;
-      border-color: var(--focus);
-      box-shadow:
-        0 0 5px var(--focus),
-        0 0 16px rgba(53,191,255,.55),
-        inset 0 0 10px rgba(53,191,255,.25);
-      text-shadow: 0 0 6px rgba(73,201,255,.75);
-      outline: none;
-    }
-
-    li a.file:hover,
-    li a.file:focus-visible {
-      border-color: var(--pink);
-      background: rgba(255,92,191,.1);
-      box-shadow:
-        0 0 5px var(--pink),
-        0 0 16px rgba(255,92,191,.5),
-        inset 0 0 10px rgba(255,92,191,.22);
-      text-shadow: 0 0 6px rgba(255,92,191,.75);
-    }
-
-    li a::before {
-      content: "\25B8";
-      display: inline-block;
-      width: 1.4em;
-      color: var(--blue);
-    }
-
-    li a.file::before {
-      content: "\2193";
-      color: var(--pink);
-    }
-
-    /* Background ambience player */
     .audio-area {
       margin: 10px 12px 12px;
       padding: 12px;
@@ -185,7 +118,6 @@
       margin: 0;
       font-size: .94rem;
       font-weight: 600;
-      color: var(--text);
     }
 
     .audio-status {
@@ -214,7 +146,6 @@
       font-weight: 600;
       cursor: pointer;
       touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
     }
 
     .audio-button:hover,
@@ -234,15 +165,23 @@
       font-size: .85rem;
     }
 
-    .volume-control label {
-      white-space: nowrap;
-    }
+    .volume-control label { white-space: nowrap; }
 
     .volume-control input {
       width: 100%;
       min-width: 60px;
       accent-color: var(--blue);
-      cursor: pointer;
+    }
+
+    /* The repository remains visible in the same page.
+       Its navigation happens inside this frame, not the audio page. */
+    .site-frame {
+      display: block;
+      width: 100%;
+      height: min(82vh, 900px);
+      min-height: 650px;
+      border: 0;
+      background: transparent;
     }
 
     .foot {
@@ -252,11 +191,8 @@
       border-top: 1px solid var(--line);
     }
 
-    /* Narrow phones */
     @media (max-width: 520px) {
-      :root {
-        --page-gutter: 8px;
-      }
+      :root { --page-gutter: 8px; }
 
       .wrap {
         padding-top: max(12px, env(safe-area-inset-top));
@@ -267,43 +203,30 @@
         padding: 12px;
       }
 
-      .head h1 {
-        font-size: 1.1rem;
-      }
+      .head h1 { font-size: 1.1rem; }
 
       .audio-area {
         margin: 8px;
         padding: 10px;
       }
 
-      .audio-controls {
-        gap: 10px;
+      .volume-control { flex-basis: 100%; }
+
+      .site-frame {
+        height: 78vh;
+        min-height: 560px;
       }
 
-      .audio-button {
-        flex: 0 0 auto;
-      }
-
-      .volume-control {
-        flex-basis: 100%;
-      }
-
-      .foot {
-        padding: 10px 12px;
-      }
+      .foot { padding: 10px 12px; }
     }
 
-    /* Short landscape viewports */
     @media (orientation: landscape) and (max-height: 500px) {
       .wrap {
         padding-top: max(8px, env(safe-area-inset-top));
         padding-bottom: max(12px, env(safe-area-inset-bottom));
       }
 
-      .head {
-        padding-top: 9px;
-        padding-bottom: 9px;
-      }
+      .head { padding-top: 9px; padding-bottom: 9px; }
 
       .head img {
         width: 36px;
@@ -311,17 +234,11 @@
         flex-basis: 36px;
       }
 
-      .audio-area {
-        margin-top: 6px;
-        margin-bottom: 8px;
-      }
+      .audio-area { margin-top: 6px; margin-bottom: 8px; }
     }
 
-    /* Respect accessibility settings */
     @media (prefers-reduced-motion: reduce) {
-      *,
-      *::before,
-      *::after {
+      *, *::before, *::after {
         scroll-behavior: auto !important;
         transition-duration: .01ms !important;
       }
@@ -345,7 +262,7 @@
         </div>
       </header>
 
-      <!-- Background audio: file is hosted outside Now/. -->
+      <!-- Audio stays in the parent page while Now/ is browsed. -->
       <section class="audio-area" aria-label="Background ambience">
         <div class="audio-heading">
           <h2 class="audio-title">Background ambience</h2>
@@ -378,18 +295,21 @@
 
         <audio
           id="background-audio"
-          src="audio/27_aquatic-ambiance.opus"
+          src="Now/io.page.background.track/27_aquatic-ambiance.opus"
           loop
           preload="auto"
           playsinline
         ></audio>
       </section>
 
-      <nav aria-label="Repository folders">
-        <ul>
-          <li><a href="Now/">Now/</a></li>
-        </ul>
-      </nav>
+      <!-- Internal links load here; the parent audio player is not reloaded. -->
+      <iframe
+        class="site-frame"
+        src="Now/"
+        title="LongTime repository browser"
+        loading="eager"
+        allow="autoplay"
+      ></iframe>
 
       <footer class="foot">Add-on repository for Kodi</footer>
     </section>
@@ -424,7 +344,7 @@
           showPaused(
             error && error.name === "NotAllowedError"
               ? "Tap Play to start audio"
-              : "Audio unavailable — check the file path"
+              : "Audio unavailable — check the file path or format"
           );
         }
       }
@@ -448,10 +368,10 @@
       });
 
       audio.addEventListener("error", () => {
-        showPaused("Audio unavailable — check the file path");
+        showPaused("Audio unavailable — check the file path or format");
       });
 
-      /* Try autoplay; browsers may require a user gesture. */
+      /* Browsers may require a tap before allowing audio playback. */
       startAudio();
     })();
   </script>
