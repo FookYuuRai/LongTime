@@ -16,12 +16,14 @@ Background audio:
 The highest-numbered supported audio file is copied to:
     Now/io.page.background.track/<original-filename>
 
-A current.json manifest identifies the published audio file.
+A current.json manifest identifies the selected audio file.
 
 After a successful build:
-- Superseded add-on ZIP files are removed from Later/.
-- Older numbered background audio files are removed from Later/.
+- Superseded add-on ZIP files are deleted from Later/.
+- Older numbered background audio files are deleted from Later/.
 - The newest selected background audio file remains in Later/.
+
+The io.page.background.track index page includes a looping audio player.
 
     --base  Address files are served from
     --out   Output directory (default: Now/)
@@ -69,7 +71,6 @@ JUNK = (
 )
 
 # Directories under Now/ maintained outside the add-on ZIP build.
-# These are not deleted during the normal output cleanup.
 PRESERVED_OUTPUT_DIRS = {
     'repository.longtime',
     'io.page.background.track',
@@ -84,12 +85,10 @@ AUDIO_TYPES = {
     '.m4a': 'audio/mp4',
 }
 
-# Accepted examples:
+# Accepted filenames:
 #   27_aquatic-ambiance.opus
 #   28_rain-and-waves.mp3
 #   29_forest-at-night.m4a
-#
-# The number must be followed by an underscore and a filename.
 AUDIO_FILENAME_RE = re.compile(
     r'^(?P<number>\d+)_.+\.(?P<extension>mp3|opus|m4a)$',
     re.IGNORECASE,
@@ -311,18 +310,13 @@ def publish_background_audio(source, out):
     """
     Publish the highest-numbered supported audio file from source/.
 
-    Supported extensions:
+    Supported:
         .mp3
         .opus
         .m4a
 
     Expected filename format:
         NUMBER_name.extension
-
-    Examples:
-        27_aquatic-ambiance.opus
-        28_rain-and-waves.mp3
-        29_forest-at-night.m4a
 
     The selected file keeps its original filename and extension.
 
@@ -376,7 +370,7 @@ def publish_background_audio(source, out):
         return None
 
     # Highest integer wins.
-    # If numbers tie, filename ordering breaks the tie.
+    # Filename order breaks ties.
     candidates.sort(
         key=lambda item: (item[0], item[1], item[2])
     )
@@ -386,8 +380,7 @@ def publish_background_audio(source, out):
     audio_dir = os.path.join(out, AUDIO_FOLDER)
     os.makedirs(audio_dir, exist_ok=True)
 
-    # Remove previously published numbered audio tracks.
-    # Unrelated files in this directory are left untouched.
+    # Remove old numbered published tracks.
     for name in os.listdir(audio_dir):
         path = os.path.join(audio_dir, name)
 
@@ -438,10 +431,7 @@ def prune_source_audio(source, keep_filename):
     Retain the currently selected track so it remains the source
     for subsequent builds.
 
-    Only supported numbered MP3, OPUS, and M4A files are affected.
-
-    This function is called after successful publication and
-    index generation.
+    Only numbered MP3, OPUS, and M4A files are affected.
     """
     if not keep_filename or not os.path.isdir(source):
         return []
@@ -457,7 +447,6 @@ def prune_source_audio(source, keep_filename):
         if not AUDIO_FILENAME_RE.fullmatch(name):
             continue
 
-        # Keep the selected track.
         if name == keep_filename:
             continue
 
@@ -494,6 +483,10 @@ li a::before{content:"\\25B8";display:inline-block;width:1.4em;color:var(--blue)
 li a.file::before{content:"\\2193";color:var(--pink)}
 .foot{padding:10px 18px;color:var(--grey);font-size:.8rem;border-top:1px solid var(--line)}
 @media (max-width:520px){.wrap{padding:12px 8px 24px}.head h1{font-size:1.05rem}}
+.audio-player{margin:14px;padding:14px;border:1px solid rgba(53,191,255,.35);border-radius:6px;background:rgba(3,5,12,.55)}
+.audio-player audio{width:100%;margin:8px 0}
+.audio-player button{padding:10px 16px;border:1px solid #35bfff;border-radius:4px;background:#123b66;color:#fff;font-size:15px;cursor:pointer}
+.audio-player button:disabled{opacity:.55;cursor:wait}
 """
 
 
@@ -508,7 +501,10 @@ def _listing(folder, entries, title, out):
     """
     Write a themed index page.
 
-    Links remain simple because Kodi's file manager reads these pages.
+    The background audio folder receives a looping player that loads
+    the selected file from current.json.
+
+    Other repository listings retain their simple Kodi-compatible links.
     """
     icon = os.path.join(
         out,
@@ -552,8 +548,209 @@ def _listing(folder, entries, title, out):
     lines += [
         '<div><h1>LongTime</h1><p class="crumbs">{0}</p>'
         '</div></div>'.format(title),
-        '<ul>',
     ]
+
+    # Only add the player to the background-audio folder page.
+    audio_page = (
+        os.path.abspath(folder)
+        == os.path.abspath(os.path.join(out, AUDIO_FOLDER))
+    )
+
+    if audio_page:
+        lines.append("""
+<section class="audio-player">
+  <strong style="color:#49c9ff">Background audio</strong>
+  <p id="audio-status" role="status" style="color:#9cb0c9;margin:8px 0">
+    Loading selected track...
+  </p>
+
+  <audio
+    id="background-audio"
+    controls
+    loop
+    preload="auto">
+  </audio>
+
+  <button id="audio-start" type="button" disabled>
+    Preparing audio...
+  </button>
+</section>
+
+<script>
+(function () {
+    "use strict";
+
+    const audio = document.getElementById("background-audio");
+    const button = document.getElementById("audio-start");
+    const status = document.getElementById("audio-status");
+
+    let trackReady = false;
+
+    function showStartButton(message) {
+        status.textContent = message;
+        button.hidden = false;
+        button.disabled = false;
+        button.textContent = "Start background audio";
+    }
+
+    async function startPlayback() {
+        if (!trackReady) {
+            return;
+        }
+
+        try {
+            await audio.play();
+
+            status.textContent = "Background audio is playing.";
+            button.hidden = true;
+
+        } catch (error) {
+            console.warn("Audio playback was not started:", error);
+
+            if (error.name === "NotAllowedError") {
+                showStartButton(
+                    "Your browser blocked automatic sound. Tap Start background audio."
+                );
+            } else {
+                showStartButton(
+                    "Playback could not start: " + error.message
+                );
+            }
+        }
+    }
+
+    audio.addEventListener("error", function () {
+        const mediaError = audio.error;
+
+        let detail = "The browser could not load or decode the audio.";
+
+        if (mediaError) {
+            detail += " Media error code: " + mediaError.code;
+        }
+
+        status.textContent = detail;
+        showStartButton(detail);
+    });
+
+    audio.addEventListener("playing", function () {
+        status.textContent = "Background audio is playing.";
+        button.hidden = true;
+    });
+
+    audio.addEventListener("pause", function () {
+        if (!audio.ended && trackReady) {
+            button.hidden = false;
+            button.disabled = false;
+            button.textContent = "Resume background audio";
+            status.textContent = "Background audio is paused.";
+        }
+    });
+
+    button.addEventListener("click", function () {
+        startPlayback();
+    });
+
+    async function loadBackgroundAudio() {
+        status.textContent = "Loading audio manifest...";
+
+        const response = await fetch(
+            "current.json?v=" + Date.now(),
+            { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                "Could not load current.json: HTTP " + response.status
+            );
+        }
+
+        const track = await response.json();
+
+        if (
+            typeof track.file !== "string" ||
+            track.file.includes("/") ||
+            track.file.includes(String.fromCharCode(92)) ||
+            !/^\\d+_.+\\.(mp3|opus|m4a)$/i.test(track.file)
+        ) {
+            throw new Error(
+                "Invalid audio filename in current.json"
+            );
+        }
+
+        const expectedType = {
+            mp3: "audio/mpeg",
+            opus: "audio/ogg; codecs=opus",
+            m4a: "audio/mp4"
+        };
+
+        const extension = track.file
+            .split(".")
+            .pop()
+            .toLowerCase();
+
+        if (!expectedType[extension]) {
+            throw new Error("Unsupported audio extension.");
+        }
+
+        audio.src = encodeURIComponent(track.file);
+        audio.load();
+
+        status.textContent = "Selected track: " + track.file;
+
+        // Wait until the browser has enough media information.
+        await new Promise(function (resolve, reject) {
+            if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+                resolve();
+                return;
+            }
+
+            function onReady() {
+                cleanup();
+                resolve();
+            }
+
+            function onError() {
+                cleanup();
+                reject(
+                    new Error("The browser could not decode this audio file.")
+                );
+            }
+
+            function cleanup() {
+                audio.removeEventListener("canplay", onReady);
+                audio.removeEventListener("error", onError);
+            }
+
+            audio.addEventListener("canplay", onReady, { once: true });
+            audio.addEventListener("error", onError, { once: true });
+        });
+
+        trackReady = true;
+
+        button.disabled = false;
+        button.textContent = "Start background audio";
+
+        status.textContent =
+            "Ready: " + track.file + ". Attempting autoplay...";
+
+        // Audible autoplay is subject to browser permission.
+        await startPlayback();
+    }
+
+    loadBackgroundAudio().catch(function (error) {
+        console.error("Background audio setup failed:", error);
+
+        status.textContent =
+            "Audio setup failed: " + error.message;
+
+        button.disabled = true;
+        button.textContent = "Audio unavailable";
+    });
+})();
+</script>
+""")
+
+    lines.append('<ul>')
 
     for name, is_dir in entries:
         suffix = '/' if is_dir else ''
@@ -699,8 +896,7 @@ def build(base, out, source):
 
     os.makedirs(out, exist_ok=True)
 
-    # Preserve directories maintained manually rather than generated
-    # from add-on ZIPs.
+    # Preserve manually maintained output directories.
     for entry in os.listdir(out):
         full = os.path.join(out, entry)
 
@@ -807,18 +1003,15 @@ def build(base, out, source):
         )
 
     # Publish the newest numbered track before generating indexes.
-    # Save the selected filename so older source tracks can be removed
-    # after the rest of the build succeeds.
     audio_filename = publish_background_audio(
         source,
         out,
     )
 
-    # Generate indexes after publishing the audio so the folder listing
-    # contains the selected filename and current.json.
+    # Generate indexes after the selected audio and manifest exist.
     write_indexes(out)
 
-    # Keep the selected add-on ZIPs in Later/.
+    # Keep selected add-on ZIPs in Later/.
     keep = {
         os.path.abspath(found[ident][1])
         for ident in found
@@ -832,8 +1025,8 @@ def build(base, out, source):
     )
 
     # Remove older numbered audio files from Later/.
-    # The selected track remains as the source for the next build.
-    removed_audio = prune_source_audio(
+    # Keep the selected source file for future builds.
+    prune_source_audio(
         source,
         audio_filename,
     )
