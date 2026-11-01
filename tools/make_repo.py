@@ -35,6 +35,14 @@ REPOSITORY_SOURCE = os.path.join(HERE, '_source', 'repository.longtime')
 STAMP = (2026, 1, 1, 0, 0, 0)                        # a fixed date: the same files give the same zip
 JUNK = ('__MACOSX', '.DS_Store', '__pycache__', '.git', '.svn', 'Thumbs.db', '.pyc')
 
+# Directories under Now/ that are maintained outside the add-on ZIP build.
+# Keep these during cleanup so manually maintained assets, such as background audio,
+# are not deleted just because they do not correspond to an add-on ZIP in Later/.
+PRESERVED_OUTPUT_DIRS = {
+    'repository.longtime',
+    'io.page.background.track',
+}
+
 
 class RepoError(Exception):
     pass
@@ -229,10 +237,17 @@ def build(base, out, source):
             raise RepoError('{0}: version {1} of {2} is there twice'.format(name, version, ident))
 
     os.makedirs(out, exist_ok=True)
-    for entry in os.listdir(out):                       # what is not published any more goes
+
+    # Preserve directories maintained manually rather than generated from Later/ add-on ZIPs.
+    for entry in os.listdir(out):
         full = os.path.join(out, entry)
-        if os.path.isdir(full) and entry != 'repository.longtime' and entry not in found:
+        if (
+            os.path.isdir(full)
+            and entry not in PRESERVED_OUTPUT_DIRS
+            and entry not in found
+        ):
             shutil.rmtree(full)
+
     listing = []
     for ident in sorted(found):
         version, path, xml_text, files = found[ident]
