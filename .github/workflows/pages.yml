@@ -7,6 +7,7 @@ on:
     paths:
       - 'index.html'
       - 'Now/**'
+      - 'tools/validate_repo_files.py'
       - '.github/workflows/pages.yml'
 
   workflow_run:
@@ -33,7 +34,7 @@ jobs:
       github.event.workflow_run.conclusion == 'success'
 
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     permissions:
       contents: read
@@ -44,6 +45,14 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: OnTheSide
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Validate source Now and Later payloads
+        run: python3 tools/validate_repo_files.py --areas Now Later
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
@@ -98,18 +107,19 @@ jobs:
           # Confirm the selected audio exists in the source repository.
           test -s "$AUDIO_DIR/$AUDIO_FILE"
 
-          # Confirm the manifest was copied to the Pages staging directory.
+          # Confirm the manifest and selected audio were copied to Pages staging.
           test -s "_site/$AUDIO_DIR/current.json"
-
-          # Confirm the selected audio was copied to the Pages staging directory.
           test -s "_site/$AUDIO_DIR/$AUDIO_FILE"
 
-          # Confirm the normal website files exist.
+          # Confirm normal website files exist.
           test -s _site/index.html
           test -s _site/Now/addons.xml
 
           echo "Verified background audio: $AUDIO_FILE"
           echo "Website files prepared successfully."
+
+      - name: Validate staged Pages payload
+        run: python3 tools/validate_repo_files.py --root _site --areas Now
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

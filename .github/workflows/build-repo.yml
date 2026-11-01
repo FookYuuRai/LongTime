@@ -7,6 +7,7 @@ on:
     paths:
       - 'Later/**'
       - 'tools/make_repo.py'
+      - 'tools/validate_repo_files.py'
       - 'tools/_source/**'
   workflow_dispatch:
 
@@ -20,7 +21,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Check out repository
@@ -33,8 +34,14 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Validate source Now and Later payloads
+        run: python3 tools/validate_repo_files.py --areas Now Later
+
       - name: Generate Kodi repository files
         run: python3 tools/make_repo.py
+
+      - name: Validate generated Now and remaining Later payloads
+        run: python3 tools/validate_repo_files.py --areas Now Later
 
       - name: Commit generated files
         shell: bash

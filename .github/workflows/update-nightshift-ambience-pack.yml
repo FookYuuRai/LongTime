@@ -1,0 +1,492 @@
+name: Update Nightshift ambience audio pack
+
+on:
+  # Poll the stable release-asset URL so replacing the ZIP is detected automatically.
+  schedule:
+    - cron: '23 */6 * * *'
+
+  # Also allow an immediate manual run or a one-off alternate asset URL.
+  workflow_dispatch:
+    inputs:
+      pack_url:
+        description: Direct HTTPS download URL of the updated ambience ZIP release asset
+        required: true
+        type: string
+        default: https://github.com/FookYuuRai/LongTime/releases/download/ambience-audio-v1/ambience-audio-opus96.zip
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-nightshift-ambience-pack
+  cancel-in-progress: false
+
+jobs:
+  update-pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out OnTheSide
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: OnTheSide
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Download, verify, bump, and package
+        id: update
+        shell: bash
+        env:
+          PACK_URL: ${{ inputs.pack_url || 'https://github.com/FookYuuRai/LongTime/releases/download/ambience-audio-v1/ambience-audio-opus96.zip' }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast
+          import hashlib
+          import json
+          import os
+          import re
+          import urllib.parse
+          import urllib.request
+          import zipfile
+          from pathlib import Path
+          from xml.etree import ElementTree as ET
+
+          ADDON_ID = "script.service.nightshift.ambience"
+          ADDON_ROOT = ADDON_ID + "/"
+          PACK_URL = os.environ["PACK_URL"].strip()
+          TEMP_PACK = Path("/tmp/ambience-audio-pack.zip")
+          AUDIO_EXTENSIONS = {
+              ".mp3", ".m4a", ".opus", ".ogg", ".oga", ".aac",
+              ".wav", ".wma", ".flac", ".ape", ".wv",
+          }
+
+          output_file = os.environ.get("GITHUB_OUTPUT")
+          if output_file:
+              with open(output_file, "a", encoding="utf-8") as output:
+                  output.write("changed=false\n")
+
+          parsed = urllib.parse.urlparse(PACK_URL)
+          if parsed.scheme != "https" or not parsed.netloc:
+              raise SystemExit("PACK_URL must be a valid HTTPS URL.")
+
+          # Download the exact release asset that the add-on will use.
+          request = urllib.request.Request(
+              PACK_URL,
+              headers={"User-Agent": "LongTime-Nightshift-Pack-Updater"},
+          )
+          digest = hashlib.sha256()
+          size = 0
+          with urllib.request.urlopen(request, timeout=60) as response, TEMP_PACK.open("wb") as target:
+              while True:
+                  block = response.read(1024 * 1024)
+                  if not block:
+                      break
+                  target.write(block)
+                  digest.update(block)
+                  size += len(block)
+
+          pack_sha256 = digest.hexdigest()
+          if size == 0:
+              raise SystemExit("The downloaded ambience pack is empty.")
+
+          def is_junk_member(name):
+              """Reject cache, bytecode, hidden, and OS-generated ZIP entries."""
+              normalized = name.replace("\\", "/")
+              parts = [part for part in normalized.split("/") if part]
+              if not parts:
+                  return True
+              if any(part in {"__pycache__", "__MACOSX"} for part in parts):
+                  return True
+              if any(part.startswith(".") for part in parts):
+                  return True
+              basename = parts[-1].lower()
+              if basename.endswith((".pyc", ".pyo")):
+                  return True
+              if basename in {".ds_store", "thumbs.db", "desktop.ini", "ehthumbs.db"}:
+                  return True
+              return False
+
+          # Inspect the archive dynamically. There is deliberately no expected
+          # number of audio files: each release may add or remove tracks. The
+          # resulting catalogue, settings toggles, and labels are rebuilt below.
+          with zipfile.ZipFile(TEMP_PACK) as pack:
+              bad_member = pack.testzip()
+              if bad_member:
+                  raise SystemExit(f"The audio pack failed CRC validation at: {bad_member}")
+
+              audio_names = []
+              nested_audio = []
+              for info in pack.infolist():
+                  name = info.filename.replace("\\", "/")
+                  if info.is_dir() or is_junk_member(name):
+                      continue
+                  if Path(name).suffix.lower() not in AUDIO_EXTENSIONS:
+                      continue
+                  if "/" in name:
+                      nested_audio.append(name)
+                  else:
+                      audio_names.append(name)
+
+          if nested_audio:
+              raise SystemExit(
+                  "The built-in audio installer expects audio files at the ZIP root; "
+                  "these audio files are nested in folders: " + ", ".join(nested_audio)
+              )
+          if not audio_names:
+              raise SystemExit("The ambience ZIP contains no supported audio files at its root.")
+          if len({name.casefold() for name in audio_names}) != len(audio_names):
+              raise SystemExit("The ambience ZIP contains duplicate audio filenames (case-insensitive).")
+
+          def natural_key(value):
+              return [int(part) if part.isdigit() else part.casefold()
+                      for part in re.split(r"(\d+)", value)]
+
+          audio_names.sort(key=natural_key)
+
+          # Find the newest available add-on ZIP (Later wins a same-version tie).
+          candidates = []
+          for path in Path("Now", ADDON_ID).glob(ADDON_ID + "-*.zip"):
+              candidates.append((path, 0))
+          for path in Path("Later").glob("script_service_nightshift_ambience-*.zip"):
+              candidates.append((path, 1))
+
+          def read_candidate(candidate):
+              path, source_priority = candidate
+              with zipfile.ZipFile(path) as archive:
+                  if ADDON_ROOT + "addon.xml" not in archive.namelist():
+                      return None
+                  root = ET.fromstring(archive.read(ADDON_ROOT + "addon.xml"))
+                  if root.attrib.get("id") != ADDON_ID:
+                      return None
+                  version = root.attrib.get("version", "")
+                  match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", version)
+                  if not match:
+                      raise SystemExit(f"Unsupported add-on version format in {path}: {version}")
+                  return (tuple(map(int, match.groups())), source_priority, path, version)
+
+          valid = [item for item in (read_candidate(candidate) for candidate in candidates) if item]
+          if not valid:
+              raise SystemExit("Could not find a current Nightshift Ambience ZIP in Now/ or Later/.")
+          _, _, source_zip, old_version = max(valid, key=lambda item: (item[0], item[1]))
+          major, minor, patch = map(int, old_version.split("."))
+          new_version = f"{major}.{minor}.{patch + 1}"
+          print(f"Using {source_zip} ({old_version}) as the source archive.")
+
+          with zipfile.ZipFile(source_zip) as source:
+              files = {
+                  name: source.read(name)
+                  for name in source.namelist()
+                  if not name.endswith("/") and not is_junk_member(name)
+              }
+
+          if not files or any(not name.startswith(ADDON_ROOT) for name in files):
+              raise SystemExit("Source ZIP has unexpected files outside the add-on root folder.")
+
+          tracks_path = ADDON_ROOT + "tracks.py"
+          audio_code_path = ADDON_ROOT + "builtin_audio.py"
+          addon_xml_path = ADDON_ROOT + "addon.xml"
+          changelog_path = ADDON_ROOT + "changelog.txt"
+          settings_path = ADDON_ROOT + "resources/settings.xml"
+          strings_path = ADDON_ROOT + "resources/language/resource.language.en_gb/strings.po"
+          for required in (tracks_path, audio_code_path, addon_xml_path, changelog_path, settings_path, strings_path):
+              if required not in files:
+                  raise SystemExit(f"Source add-on ZIP is missing {required}.")
+
+          # Read the existing catalogue so matching filenames keep their current
+          # setting IDs and human-written labels. Added/removed files are synced.
+          tracks_tree = ast.parse(files[tracks_path].decode("utf-8"))
+          old_tracks = None
+          for node in tracks_tree.body:
+              if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                  targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                  if any(isinstance(target, ast.Name) and target.id == "BUILTIN_TRACKS" for target in targets):
+                      old_tracks = ast.literal_eval(node.value)
+                      break
+          if not isinstance(old_tracks, (tuple, list)):
+              raise SystemExit("Could not read BUILTIN_TRACKS from tracks.py.")
+          old_catalogue_names = [entry[1] for entry in old_tracks]
+          catalogue_changed = old_catalogue_names != audio_names
+
+          settings_root = ET.fromstring(files[settings_path])
+          music_group = settings_root.find(".//group[@id='4']")
+          if music_group is None:
+              raise SystemExit("Could not find the built-in track settings group (group id 4).")
+          old_setting_elements = {
+              element.attrib.get("id"): element
+              for element in music_group.findall("setting")
+              if re.fullmatch(r"track_\d+", element.attrib.get("id", ""))
+          }
+          existing_by_file = {}
+          for entry in old_tracks:
+              if not isinstance(entry, (tuple, list)) or len(entry) != 3:
+                  raise SystemExit("tracks.py contains an invalid BUILTIN_TRACKS entry.")
+              setting_id, filename, label = entry
+              setting = old_setting_elements.get(setting_id)
+              if setting is None or not setting.attrib.get("label", "").isdigit():
+                  raise SystemExit(f"No valid settings.xml entry exists for {setting_id} ({filename}).")
+              existing_by_file[filename] = {
+                  "setting_id": setting_id,
+                  "label_id": int(setting.attrib["label"]),
+                  "label": label,
+              }
+
+          used_setting_ids = {
+              element.attrib["id"] for element in settings_root.iter()
+              if element.tag == "setting" and "id" in element.attrib
+          }
+          used_label_ids = {
+              int(value) for element in settings_root.iter()
+              for value in [element.attrib.get("label", "")]
+              if value.isdigit()
+          }
+          po_text = files[strings_path].decode("utf-8")
+          old_track_label_ids = {str(meta["label_id"]) for meta in existing_by_file.values()}
+          for match in re.finditer(r'^msgctxt "#(\d+)"$', po_text, re.MULTILINE):
+              used_label_ids.add(int(match.group(1)))
+
+          next_setting_number = max(
+              (int(match.group(1)) for setting_id in used_setting_ids
+               if (match := re.fullmatch(r"track_(\d+)", setting_id))),
+              default=0,
+          ) + 1
+          next_label_id = max(used_label_ids, default=30000) + 1
+
+          def generated_label(filename):
+              stem = Path(filename).stem
+              stem = re.sub(r"^\d+[\s._-]+", "", stem)
+              stem = re.sub(r"[_-]+", " ", stem)
+              stem = re.sub(r"\s+", " ", stem).strip()
+              return stem.title() if stem else Path(filename).stem
+
+          synced_tracks = []
+          for filename in audio_names:
+              known = existing_by_file.get(filename)
+              if known:
+                  setting_id = known["setting_id"]
+                  label_id = known["label_id"]
+                  label = known["label"]
+              else:
+                  while f"track_{next_setting_number:02d}" in used_setting_ids:
+                      next_setting_number += 1
+                  setting_id = f"track_{next_setting_number:02d}"
+                  used_setting_ids.add(setting_id)
+                  next_setting_number += 1
+                  label_id = next_label_id
+                  used_label_ids.add(label_id)
+                  next_label_id += 1
+                  label = generated_label(filename)
+              synced_tracks.append((setting_id, filename, label, label_id))
+
+          # Regenerate tracks.py from the actual audio archive contents.
+          tracks_lines = [
+              "# -*- coding: utf-8 -*-",
+              '"""The built-in ambience tracks: (setting id, file in resources/audio, name shown in the settings)."""',
+              "",
+              "BUILTIN_TRACKS = (",
+          ]
+          for setting_id, filename, label, _label_id in synced_tracks:
+              tracks_lines.append("    " + repr((setting_id, filename, label)) + ",")
+          tracks_lines.extend((")", ""))
+          files[tracks_path] = "\n".join(tracks_lines).encode("utf-8")
+
+          # Regenerate only the per-track Kodi settings; leave all other settings intact.
+          for element in list(music_group):
+              if element.tag == "setting" and re.fullmatch(r"track_\d+", element.attrib.get("id", "")):
+                  music_group.remove(element)
+          anchor_index = next(
+              (index for index, element in enumerate(list(music_group))
+               if element.tag == "setting" and element.attrib.get("id") == "tracks_all_off"),
+              None,
+          )
+          if anchor_index is None:
+              raise SystemExit("Could not find tracks_all_off setting to anchor the generated track list.")
+          insert_at = anchor_index + 1
+          for setting_id, _filename, _label, label_id in synced_tracks:
+              setting = ET.Element("setting", {
+                  "id": setting_id,
+                  "type": "boolean",
+                  "label": str(label_id),
+              })
+              ET.SubElement(setting, "level").text = "0"
+              ET.SubElement(setting, "default").text = "true"
+              ET.SubElement(setting, "control", {"type": "toggle"})
+              music_group.insert(insert_at, setting)
+              insert_at += 1
+          ET.indent(settings_root, space="  ")
+          files[settings_path] = ET.tostring(
+              settings_root, encoding="utf-8", xml_declaration=True
+          ) + b"\n"
+
+          # Replace the old per-track PO entries with labels for the current pack.
+          po_blocks = re.split(r"\n\s*\n", po_text.strip())
+          kept_blocks = []
+          for block in po_blocks:
+              context = re.search(r'^msgctxt "#(\d+)"$', block, re.MULTILINE)
+              if context and context.group(1) in old_track_label_ids:
+                  continue
+              kept_blocks.append(block)
+          for _setting_id, _filename, label, label_id in synced_tracks:
+              kept_blocks.append(
+                  f'msgctxt "#{label_id}"\nmsgid {json.dumps(label, ensure_ascii=False)}\nmsgstr ""'
+              )
+          files[strings_path] = ("\n\n".join(kept_blocks).rstrip() + "\n").encode("utf-8")
+
+          # Do nothing (and do not bump a version) unless the pack checksum or URL changed.
+          current_audio_code = files[audio_code_path].decode("utf-8")
+          current_values = {}
+          for node in ast.parse(current_audio_code).body:
+              if isinstance(node, ast.Assign):
+                  for target in node.targets:
+                      if isinstance(target, ast.Name) and target.id in {"PACK_URL", "PACK_SHA256", "PACK_SIZE"}:
+                          try:
+                              current_values[target.id] = ast.literal_eval(node.value)
+                          except (ValueError, TypeError):
+                              pass
+          if (
+              current_values.get("PACK_SHA256") == pack_sha256
+              and current_values.get("PACK_URL") == PACK_URL
+              and current_values.get("PACK_SIZE") == size
+              and not catalogue_changed
+          ):
+              message = (
+                  "### Nightshift Ambience pack check\n"
+                  "No change detected. The published add-on already points to this audio pack.\n"
+                  f"- SHA-256: `{pack_sha256}`\n"
+                  f"- Audio files found in pack: `{len(audio_names)}`\n"
+              )
+              summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+              if summary_path:
+                  with open(summary_path, "a", encoding="utf-8") as summary:
+                      summary.write(message)
+              print(message)
+              raise SystemExit(0)
+
+          # Bump the add-on patch version and update pack URL/checksum/download size.
+          addon_xml = files[addon_xml_path].decode("utf-8")
+          updated_xml, count = re.subn(
+              r'(<addon\b[^>]*\bversion=")[^"]+("[^>]*>)',
+              lambda match: match.group(1) + new_version + match.group(2),
+              addon_xml,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("Could not update the version attribute in addon.xml.")
+          files[addon_xml_path] = updated_xml.encode("utf-8")
+
+          audio_code = current_audio_code
+          replacements = [
+              (r"(?m)^PACK_URL\s*=\s*['\"][^'\"]*['\"]", "PACK_URL = " + repr(PACK_URL)),
+              (r"(?m)^PACK_SHA256\s*=\s*['\"][^'\"]*['\"]", "PACK_SHA256 = " + repr(pack_sha256)),
+              (r"(?m)^PACK_SIZE\s*=\s*\d+", "PACK_SIZE = " + str(size)),
+          ]
+          for pattern, replacement in replacements:
+              audio_code, count = re.subn(pattern, replacement, audio_code, count=1)
+              if count != 1:
+                  raise SystemExit(f"Could not update installer setting matching {pattern}.")
+          files[audio_code_path] = audio_code.encode("utf-8")
+
+          changelog = files[changelog_path].decode("utf-8")
+          entry = (
+              f"Version {new_version}\n"
+              "- Update the built-in ambience audio pack URL, SHA-256 and download size.\n"
+              "- Sync built-in track settings with the audio files in the pack.\n"
+              "- No other functional changes.\n\n"
+          )
+          files[changelog_path] = (entry + changelog).encode("utf-8")
+
+          output_path = Path("Later") / f"script_service_nightshift_ambience-{new_version}.zip"
+          output_path.parent.mkdir(parents=True, exist_ok=True)
+          if output_path.exists():
+              raise SystemExit(f"Refusing to overwrite existing file: {output_path}")
+
+          with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as output:
+              for name in sorted(files):
+                  output.writestr(name, files[name])
+
+          # Re-open and validate the distributable, including the dynamically
+          # generated catalogue/settings/labels and the no-junk packaging rule.
+          with zipfile.ZipFile(output_path) as result:
+              if result.testzip():
+                  raise SystemExit("Generated add-on ZIP failed integrity validation.")
+              dirty_entries = [name for name in result.namelist() if is_junk_member(name)]
+              if dirty_entries:
+                  raise SystemExit("Generated ZIP contains packaging junk: " + ", ".join(dirty_entries))
+              final_xml = ET.fromstring(result.read(addon_xml_path))
+              final_tracks_tree = ast.parse(result.read(tracks_path).decode("utf-8"))
+              final_tracks = None
+              for node in final_tracks_tree.body:
+                  if isinstance(node, ast.Assign):
+                      if any(isinstance(target, ast.Name) and target.id == "BUILTIN_TRACKS" for target in node.targets):
+                          final_tracks = ast.literal_eval(node.value)
+                          break
+              final_settings = ET.fromstring(result.read(settings_path))
+              final_group = final_settings.find(".//group[@id='4']")
+              final_setting_ids = {
+                  element.attrib.get("id") for element in final_group.findall("setting")
+                  if re.fullmatch(r"track_\d+", element.attrib.get("id", ""))
+              } if final_group is not None else set()
+              final_filenames = {entry[1] for entry in final_tracks or []}
+              expected_filenames = set(audio_names)
+              expected_setting_ids = {entry[0] for entry in synced_tracks}
+              if final_xml.attrib.get("version") != new_version:
+                  raise SystemExit("Generated ZIP contains the wrong add-on version.")
+              if final_filenames != expected_filenames:
+                  raise SystemExit("Generated tracks.py does not match the audio files in the pack.")
+              if final_setting_ids != expected_setting_ids:
+                  raise SystemExit("Generated settings.xml does not match the generated tracks.py.")
+              final_po = result.read(strings_path).decode("utf-8")
+              for _setting_id, _filename, label, label_id in synced_tracks:
+                  if f'msgctxt "#{label_id}"' not in final_po or label not in final_po:
+                      raise SystemExit(f"Generated strings.po is missing the label for {label}.")
+              final_code = result.read(audio_code_path).decode("utf-8")
+              compile(final_code, audio_code_path, "exec")
+              compile(result.read(tracks_path), tracks_path, "exec")
+              if pack_sha256 not in final_code or f"PACK_SIZE = {size}" not in final_code:
+                  raise SystemExit("Generated ZIP does not contain the new pack metadata.")
+
+          summary = (
+              "### Nightshift Ambience updated\n"
+              f"- Add-on version: `{old_version}` → `{new_version}`\n"
+              f"- Audio pack SHA-256: `{pack_sha256}`\n"
+              f"- Audio pack size: `{size:,}` bytes\n"
+              f"- Audio files detected and added to the built-in catalogue: `{len(audio_names)}`\n"
+              f"- New ZIP: `{output_path}`\n"
+          )
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a", encoding="utf-8") as summary_file:
+                  summary_file.write(summary)
+          print(summary)
+          if output_file:
+              with open(output_file, "a", encoding="utf-8") as output:
+                  output.write("changed=true\n")
+                  output.write(f"zip_path={output_path}\n")
+          PY
+
+      - name: Validate generated Later payloads
+        if: steps.update.outputs.changed == 'true'
+        run: python3 tools/validate_repo_files.py --areas Later
+
+      - name: Commit the new add-on ZIP
+        if: steps.update.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${{ steps.update.outputs.zip_path }}"
+          if git diff --cached --quiet; then
+            echo "No package changes to commit."
+            exit 0
+          fi
+          git commit -m "Update Nightshift ambience audio pack"
+          # This push automatically triggers the existing build repo workflow
+          # because that workflow watches Later/** on the OnTheSide branch.
+          git push origin HEAD:OnTheSide
+
