@@ -55,6 +55,10 @@ li a.file::before{content:"\2193";color:var(--pink)}
     const status = document.getElementById("audio-status");
     const audioFolder = "../../../../io.page.background.track/";
     let trackReady = false;
+    let audioConfigured = false;
+    let playbackStarted = false;
+    let playRequestPending = false;
+    let playRequestNumber = 0;
     let navigationNumber = 0;
 
     function showStartButton(message) {
@@ -64,28 +68,50 @@ li a.file::before{content:"\2193";color:var(--pink)}
         button.textContent = "Start background audio";
     }
 
-    async function startPlayback() {
-        if (!trackReady) return;
+    function startPlayback(userInitiated) {
+        // Call audio.play() immediately in the click event when possible.
+        // Do not wait for canplay: browsers can queue play() while loading.
+        if (!audioConfigured) return;
+        if (playbackStarted && (!userInitiated || !audio.paused)) return;
+        if (playRequestPending && !userInitiated) return;
+        const requestNumber = ++playRequestNumber;
+        playRequestPending = true;
+        let playPromise;
         try {
-            await audio.play();
+            playPromise = audio.play();
+        } catch (error) {
+            if (requestNumber === playRequestNumber) playRequestPending = false;
+            if (requestNumber === playRequestNumber) handlePlaybackError(error);
+            return;
+        }
+        Promise.resolve(playPromise).then(function () {
+            if (requestNumber !== playRequestNumber) return;
+            playbackStarted = true;
             status.textContent = "Background audio is playing while you browse folders.";
             button.hidden = true;
-        } catch (error) {
-            console.warn("Background audio autoplay was blocked:", error);
-            if (error.name === "NotAllowedError") {
-                showStartButton("Tap Start once to enable background audio while browsing this site.");
-            } else {
-                showStartButton("Playback failed: " + error.message);
-            }
+        }).catch(function (error) {
+            if (requestNumber === playRequestNumber) handlePlaybackError(error);
+        }).finally(function () {
+            if (requestNumber === playRequestNumber) playRequestPending = false;
+        });
+    }
+
+    function handlePlaybackError(error) {
+        console.warn("Background audio playback was blocked or failed:", error);
+        if (error.name === "NotAllowedError") {
+            showStartButton("Tap Start, or tap the Now folder, to start background audio.");
+        } else {
+            showStartButton("Playback failed: " + error.message);
         }
     }
 
     button.addEventListener("click", function () {
         // audio.play() is invoked directly from this user gesture.
-        startPlayback();
+        startPlayback(true);
     });
 
     audio.addEventListener("playing", function () {
+        playbackStarted = true;
         status.textContent = "Background audio is playing while you browse folders.";
         button.hidden = true;
     });
@@ -125,6 +151,7 @@ li a.file::before{content:"\2193";color:var(--pink)}
         const fileUrl = new URL(encodeURIComponent(track.file), audioBase);
         fileUrl.searchParams.set("v", String(track.number || "current"));
         audio.src = fileUrl.href;
+        audioConfigured = true;
         audio.preload = "auto";
         audio.load();
 
@@ -148,7 +175,7 @@ li a.file::before{content:"\2193";color:var(--pink)}
         button.disabled = false;
         button.textContent = "Start background audio";
         status.textContent = "Ready: " + track.file + ". Attempting autoplay...";
-        await startPlayback();
+        startPlayback(false);
     }
 
     async function navigateDirectory(targetUrl, addHistory) {
@@ -189,6 +216,12 @@ li a.file::before{content:"\2193";color:var(--pink)}
         let targetUrl;
         try { targetUrl = new URL(link.href, document.baseURI); } catch (_) { return; }
         if (targetUrl.origin !== location.origin || !targetUrl.pathname.endsWith("/")) return;
+        // The root page links to Now/. Use that tap as the audio permission gesture.
+        // This retries only until playback has successfully started; it will not
+        // restart or interrupt a track that is already playing.
+        if (targetUrl.pathname.toLowerCase().endsWith("/now/") && !playbackStarted) {
+            startPlayback(true);
+        }
         event.preventDefault();
         navigateDirectory(targetUrl, true).catch(function (error) {
             console.error("Folder navigation failed; loading normally:", error);
