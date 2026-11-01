@@ -1,0 +1,163 @@
+name: Prune old successful workflow history
+
+on:
+  workflow_run:
+    workflows:
+      - build repo
+      - Publish GitHub Pages
+      - Update pinned GitHub Actions
+    types:
+      - completed
+    branches:
+      - OnTheSide
+
+  workflow_dispatch:
+    inputs:
+      workflow_file:
+        description: Workflow whose old run history should be pruned
+        required: true
+        type: choice
+        options:
+          - build-repo.yml
+          - pages.yml
+          - update-action-pins.yml
+
+permissions:
+  actions: write
+
+concurrency:
+  group: prune-old-workflow-runs
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Delete completed runs older than the latest successful run date
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.workflow_id || inputs.workflow_file }}
+          TARGET_BRANCH: OnTheSide
+        run: |
+          set -euo pipefail
+
+          node <<'NODE'
+          const repository = process.env.REPOSITORY;
+          const workflowRef = process.env.WORKFLOW_REF;
+          const branch = process.env.TARGET_BRANCH;
+          const token = process.env.GH_TOKEN;
+
+          if (!repository || !workflowRef || !branch || !token) {
+              throw new Error("Missing repository, workflow, branch, or GitHub token.");
+          }
+
+          const headers = {
+              "Accept": "application/vnd.github+json",
+              "Authorization": `Bearer ${token}`,
+              "X-GitHub-Api-Version": "2022-11-28"
+          };
+
+          async function githubApi(path, options = {}) {
+              const response = await fetch(`https://api.github.com${path}`, {
+                  ...options,
+                  headers: {
+                      ...headers,
+                      ...(options.headers || {})
+                  }
+              });
+
+              if (!response.ok) {
+                  const detail = await response.text();
+                  throw new Error(
+                      `GitHub API ${options.method || "GET"} ${path} failed: ` +
+                      `${response.status} ${response.statusText}\n${detail}`
+                  );
+              }
+
+              if (response.status === 204) return null;
+              return response.json();
+          }
+
+          async function main() {
+              const runs = [];
+              const encodedBranch = encodeURIComponent(branch);
+
+              // GitHub returns at most 1,000 results for this workflow-run query.
+              // Fetch up to ten pages of 100, newest pages first.
+              for (let page = 1; page <= 10; page++) {
+                  const path =
+                      `/repos/${repository}/actions/workflows/` +
+                      `${encodeURIComponent(workflowRef)}/runs` +
+                      `?branch=${encodedBranch}&per_page=100&page=${page}`;
+
+                  const result = await githubApi(path);
+                  const pageRuns = result.workflow_runs || [];
+                  runs.push(...pageRuns);
+
+                  if (pageRuns.length < 100) break;
+              }
+
+              const successfulRuns = runs
+                  .filter(run => run.status === "completed" && run.conclusion === "success")
+                  .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+
+              if (successfulRuns.length === 0) {
+                  console.log(
+                      `No successful run found for ${workflowRef} on ${branch}. ` +
+                      "Nothing will be deleted."
+                  );
+                  return;
+              }
+
+              // Use the UTC calendar date of the newest successful run as the cutoff.
+              const latestSuccessfulRun = successfulRuns[0];
+              const cutoffDate = latestSuccessfulRun.created_at.slice(0, 10);
+
+              console.log(`Workflow: ${workflowRef}`);
+              console.log(`Branch: ${branch}`);
+              console.log(`Latest successful run: ${latestSuccessfulRun.id}`);
+              console.log(`Latest successful run date (UTC): ${cutoffDate}`);
+              console.log(`Runs inspected: ${runs.length}`);
+
+              // Keep every run on the latest successful date, plus all newer runs.
+              // This deliberately retains newer failed runs for troubleshooting.
+              // Only completed runs strictly older than the successful date are deleted.
+              const oldRuns = runs.filter(run =>
+                  run.status === "completed" &&
+                  run.created_at.slice(0, 10) < cutoffDate
+              );
+
+              if (oldRuns.length === 0) {
+                  console.log("No older completed runs need deletion.");
+                  return;
+              }
+
+              let deleted = 0;
+
+              for (const run of oldRuns) {
+                  const path = `/repos/${repository}/actions/runs/${run.id}`;
+                  await githubApi(path, { method: "DELETE" });
+                  deleted++;
+                  console.log(
+                      `Deleted run ${run.id}: ${run.name} ` +
+                      `(${run.created_at}, ${run.conclusion || run.status})`
+                  );
+              }
+
+              console.log(
+                  `Finished: deleted ${deleted} completed run(s) dated before ${cutoffDate}.`
+              );
+          }
+
+          main().catch(error => {
+              console.error(error);
+              process.exitCode = 1;
+          });
+          NODE
