@@ -1,0 +1,85 @@
+name: Publish GitHub Pages
+
+on:
+  push:
+    branches:
+      - OnTheSide
+    paths:
+      - 'index.html'
+      - 'Now/**'
+      - '.github/workflows/pages.yml'
+
+  workflow_run:
+    workflows:
+      - build repo
+    types:
+      - completed
+    branches:
+      - OnTheSide
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-deployment
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      pages: read
+
+    steps:
+      - name: Check out published files
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: OnTheSide
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Prepare website
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp index.html _site/index.html
+          cp -a Now _site/Now
+          test -s _site/index.html
+          test -s _site/Now/addons.xml
+          echo "Website files prepared successfully."
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      actions: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
