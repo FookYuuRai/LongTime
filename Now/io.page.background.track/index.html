@@ -22,10 +22,206 @@ li a::before{content:"\25B8";display:inline-block;width:1.4em;color:var(--blue)}
 li a.file::before{content:"\2193";color:var(--pink)}
 .foot{padding:10px 18px;color:var(--grey);font-size:.8rem;border-top:1px solid var(--line)}
 @media (max-width:520px){.wrap{padding:12px 8px 24px}.head h1{font-size:1.05rem}}
+.audio-player{margin:14px;padding:14px;border:1px solid rgba(53,191,255,.35);border-radius:6px;background:rgba(3,5,12,.55)}
+.audio-player audio{width:100%;margin:8px 0}
+.audio-player button{padding:10px 16px;border:1px solid #35bfff;border-radius:4px;background:#123b66;color:#fff;font-size:15px;cursor:pointer}
+.audio-player button:disabled{opacity:.55;cursor:wait}
 </style></head><body><div class="wrap"><div class="panel">
 <div class="head">
 <img src="../skin.nightshift/resources/icon.png" alt="">
 <div><h1>LongTime</h1><p class="crumbs">Now / io.page.background.track</p></div></div>
+
+<section class="audio-player">
+  <strong style="color:#49c9ff">Background audio</strong>
+  <p id="audio-status" role="status" style="color:#9cb0c9;margin:8px 0">
+    Loading selected track...
+  </p>
+
+  <audio
+    id="background-audio"
+    controls
+    loop
+    preload="auto">
+  </audio>
+
+  <button id="audio-start" type="button" disabled>
+    Preparing audio...
+  </button>
+</section>
+
+<script>
+(function () {
+    "use strict";
+
+    const audio = document.getElementById("background-audio");
+    const button = document.getElementById("audio-start");
+    const status = document.getElementById("audio-status");
+
+    let trackReady = false;
+
+    function showStartButton(message) {
+        status.textContent = message;
+        button.hidden = false;
+        button.disabled = false;
+        button.textContent = "Start background audio";
+    }
+
+    async function startPlayback() {
+        if (!trackReady) {
+            return;
+        }
+
+        try {
+            await audio.play();
+
+            status.textContent = "Background audio is playing.";
+            button.hidden = true;
+
+        } catch (error) {
+            console.warn("Audio playback was not started:", error);
+
+            if (error.name === "NotAllowedError") {
+                showStartButton(
+                    "Your browser blocked automatic sound. Tap Start background audio."
+                );
+            } else {
+                showStartButton(
+                    "Playback could not start: " + error.message
+                );
+            }
+        }
+    }
+
+    audio.addEventListener("error", function () {
+        const mediaError = audio.error;
+
+        let detail = "The browser could not load or decode the audio.";
+
+        if (mediaError) {
+            detail += " Media error code: " + mediaError.code;
+        }
+
+        status.textContent = detail;
+        showStartButton(detail);
+    });
+
+    audio.addEventListener("playing", function () {
+        status.textContent = "Background audio is playing.";
+        button.hidden = true;
+    });
+
+    audio.addEventListener("pause", function () {
+        if (!audio.ended && trackReady) {
+            button.hidden = false;
+            button.disabled = false;
+            button.textContent = "Resume background audio";
+            status.textContent = "Background audio is paused.";
+        }
+    });
+
+    button.addEventListener("click", function () {
+        startPlayback();
+    });
+
+    async function loadBackgroundAudio() {
+        status.textContent = "Loading audio manifest...";
+
+        const response = await fetch(
+            "current.json?v=" + Date.now(),
+            { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                "Could not load current.json: HTTP " + response.status
+            );
+        }
+
+        const track = await response.json();
+
+        if (
+            typeof track.file !== "string" ||
+            track.file.includes("/") ||
+            track.file.includes(String.fromCharCode(92)) ||
+            !/^\d+_.+\.(mp3|opus|m4a)$/i.test(track.file)
+        ) {
+            throw new Error(
+                "Invalid audio filename in current.json"
+            );
+        }
+
+        const expectedType = {
+            mp3: "audio/mpeg",
+            opus: "audio/ogg; codecs=opus",
+            m4a: "audio/mp4"
+        };
+
+        const extension = track.file
+            .split(".")
+            .pop()
+            .toLowerCase();
+
+        if (!expectedType[extension]) {
+            throw new Error("Unsupported audio extension.");
+        }
+
+        audio.src = encodeURIComponent(track.file);
+        audio.load();
+
+        status.textContent = "Selected track: " + track.file;
+
+        // Wait until the browser has enough media information.
+        await new Promise(function (resolve, reject) {
+            if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+                resolve();
+                return;
+            }
+
+            function onReady() {
+                cleanup();
+                resolve();
+            }
+
+            function onError() {
+                cleanup();
+                reject(
+                    new Error("The browser could not decode this audio file.")
+                );
+            }
+
+            function cleanup() {
+                audio.removeEventListener("canplay", onReady);
+                audio.removeEventListener("error", onError);
+            }
+
+            audio.addEventListener("canplay", onReady, { once: true });
+            audio.addEventListener("error", onError, { once: true });
+        });
+
+        trackReady = true;
+
+        button.disabled = false;
+        button.textContent = "Start background audio";
+
+        status.textContent =
+            "Ready: " + track.file + ". Attempting autoplay...";
+
+        // Audible autoplay is subject to browser permission.
+        await startPlayback();
+    }
+
+    loadBackgroundAudio().catch(function (error) {
+        console.error("Background audio setup failed:", error);
+
+        status.textContent =
+            "Audio setup failed: " + error.message;
+
+        button.disabled = true;
+        button.textContent = "Audio unavailable";
+    });
+})();
+</script>
+
 <ul>
 <li><a href="32_aquatic-ambiance.m4a" class="file">32_aquatic-ambiance.m4a</a></li>
 <li><a href="current.json" class="file">current.json</a></li>
