@@ -467,7 +467,7 @@ _CSS = """
 :root{--bg:#03050c;--panel:#071426;--header:#123b66;--text:#f0f6ff;--grey:#9cb0c9;--blue:#49c9ff;--focus:#35bfff;--pink:#ff5cbf;--line:rgba(53,191,255,.5)}
 *{box-sizing:border-box}
 html{background:var(--bg)}
-body{margin:0;min-height:100vh;color:var(--text);text-shadow:0 1px 4px rgba(0,0,0,.95);font:16px/1.45 "Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:linear-gradient(rgba(3,5,12,.28),rgba(3,5,12,.42))%(fanart)s,var(--bg);background-size:cover;background-attachment:fixed;background-position:center}
+body{margin:0;min-height:100vh;color:var(--text);text-shadow:0 1px 4px rgba(0,0,0,.95);font:16px/1.45 "Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:linear-gradient(rgba(3,5,12,.28),rgba(3,5,12,.42))__FANART__,var(--bg);background-size:cover;background-attachment:fixed;background-position:center}
 .wrap{max-width:920px;margin:0 auto;padding:28px 16px 40px}
 .panel{background:rgba(7,20,38,.3);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);border:1px solid var(--line);border-radius:6px;box-shadow:0 0 28px rgba(53,191,255,.14);overflow:hidden}
 .head{display:flex;align-items:center;gap:14px;padding:14px 18px;background:rgba(18,59,102,.3);border-bottom:1px solid var(--line)}
@@ -520,13 +520,18 @@ def _listing(folder, entries, title, out):
         'fanart.jpg',
     )
 
-    css = _CSS % {
-        'fanart': (
-            ',url("{0}")'.format(_relative(fanart, folder))
-            if os.path.isfile(fanart)
-            else ''
-        )
-    }
+    fanart_background = (
+        ',url("{0}")'.format(_relative(fanart, folder))
+        if os.path.isfile(fanart)
+        else ''
+    )
+
+    # Use literal placeholder replacement instead of %-formatting.
+    # This preserves CSS percentages such as width:100%.
+    css = _CSS.replace(
+        '__FANART__',
+        fanart_background,
+    )
 
     lines = [
         '<!DOCTYPE html>',
