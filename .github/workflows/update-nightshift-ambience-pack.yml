@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: update-nightshift-ambience-pack
@@ -486,7 +487,13 @@ jobs:
             exit 0
           fi
           git commit -m "Update Nightshift ambience audio pack"
-          # This push automatically triggers the existing build repo workflow
-          # because that workflow watches Later/** on the OnTheSide branch.
+          # GITHUB_TOKEN pushes do not start another workflow from a push event.
+          # Explicitly dispatch build-repo.yml after the new ZIP is committed.
           git push origin HEAD:OnTheSide
+
+      - name: Dispatch repository build
+        if: steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build-repo.yml --ref OnTheSide
 
