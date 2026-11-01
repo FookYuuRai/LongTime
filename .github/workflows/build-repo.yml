@@ -3,22 +3,34 @@ name: build repo
 on:
   push:
     branches: [OnTheSide]
-    paths: ['Later/**', 'tools/make_repo.py', 'tools/_source/**']
+    paths:
+      - 'Later/**'
+      - 'tools/make_repo.py'
+      - 'tools/_source/**'
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: build-repo-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: OnTheSide
+
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+
       - name: Run make_repo.py
         run: python3 tools/make_repo.py
+
       - name: Commit generated files
         run: |
           git config user.name "github-actions[bot]"
