@@ -60,15 +60,31 @@ REPOSITORY_SOURCE = os.path.join(
 
 STAMP = (2026, 1, 1, 0, 0, 0)
 
-JUNK = (
-    '__MACOSX',
-    '.DS_Store',
+JUNK_DIRECTORIES = {
+    '__macosx',
     '__pycache__',
     '.git',
     '.svn',
-    'Thumbs.db',
-    '.pyc',
-)
+}
+JUNK_FILES = {
+    '.ds_store',
+    'thumbs.db',
+    'desktop.ini',
+    'ehthumbs.db',
+}
+JUNK_SUFFIXES = ('.pyc', '.pyo')
+
+
+def is_junk_path(name):
+    """Return True for hidden path components and common packaging debris."""
+    normalized = name.replace('\\', '/')
+    parts = [part for part in normalized.split('/') if part not in ('', '.')]
+    if not parts:
+        return True
+    if any(part.startswith('.') or part.casefold() in JUNK_DIRECTORIES for part in parts):
+        return True
+    basename = parts[-1].casefold()
+    return basename in JUNK_FILES or basename.endswith(JUNK_SUFFIXES)
 
 # Directories under Now/ maintained outside the add-on ZIP build.
 PRESERVED_OUTPUT_DIRS = {
@@ -241,12 +257,9 @@ def open_zip(path):
         )
 
     for name in names:
-        if any(
-            junk in name.split('/') or name.endswith(junk)
-            for junk in JUNK
-        ):
+        if is_junk_path(name):
             raise RepoError(
-                '{0}: contains {1}'.format(
+                '{0}: contains hidden or packaging-junk entry {1}'.format(
                     os.path.basename(path),
                     name,
                 )
