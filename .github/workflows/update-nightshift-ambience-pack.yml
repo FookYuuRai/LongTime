@@ -1,7 +1,16 @@
 name: Update Nightshift ambience audio pack
 
 on:
-  # Poll the stable release-asset URL so replacing the ZIP is detected automatically.
+  # Check immediately whenever a ZIP is added or replaced in Later/. The
+  # repository build excludes these ZIP paths so it cannot race this check.
+  push:
+    branches:
+      - OnTheSide
+    paths:
+      - 'Later/*.zip'
+      - 'Later/**/*.zip'
+
+  # Poll the stable release-asset URL every six hours as a second update path.
   schedule:
     - cron: '23 */6 * * *'
 
@@ -502,8 +511,11 @@ jobs:
           # Explicitly dispatch build-repo.yml after the new ZIP is committed.
           git push origin HEAD:OnTheSide
 
-      - name: Dispatch repository build
-        if: steps.update.outputs.changed == 'true'
+      - name: Dispatch repository build after ZIP upload or pack update
+        # On a Later/ ZIP upload, run the build even when the hosted audio
+        # release asset itself is unchanged. On the six-hour poll/manual run,
+        # only rebuild when the add-on package was actually updated.
+        if: steps.update.outputs.changed == 'true' || github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run build-repo.yml --ref OnTheSide

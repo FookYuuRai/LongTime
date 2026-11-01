@@ -6,6 +6,10 @@ on:
       - OnTheSide
     paths:
       - 'Later/**'
+      # ZIP uploads are sequenced through update-nightshift-ambience-pack.yml.
+      # That workflow dispatches this build after its pack check completes.
+      - '!Later/*.zip'
+      - '!Later/**/*.zip'
       - 'tools/make_repo.py'
       - 'tools/validate_repo_files.py'
       - 'tools/_source/**'
@@ -62,9 +66,7 @@ jobs:
           fi
 
       # A GITHUB_TOKEN push does not start another workflow from a push event.
-      # Explicitly dispatch Pages after the repository build so every successful
-      # build publishes the current Now/ tree, even when this build was itself
-      # started by workflow_dispatch from another workflow.
+      # Explicitly deploy Pages after the repository build completes.
       - name: Dispatch GitHub Pages deployment
         env:
           GH_TOKEN: ${{ github.token }}
