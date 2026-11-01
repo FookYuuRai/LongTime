@@ -28,7 +28,7 @@
         <news>Check the Changelog in Tools &gt; Changelog &amp; Log Utils[/COLOR]</news>
     </extension>
 </addon>
-<addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.4.7" provider-name="Custom">
+<addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.4.8" provider-name="Custom">
   <requires><import addon="xbmc.python" version="3.0.1"/></requires>
   <extension point="xbmc.service" library="service.py" start="startup"/>
   <extension point="xbmc.python.script" library="folders.py"/>
