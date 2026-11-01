@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Builds the files Kodi reads (the Now/ folder) from the add-on zips in Later/.
+Builds the files Kodi reads (the Now/ folder) from add-on ZIPs in Later/.
 
 For each add-on ID, the ZIP with the highest version is published as
 Now/<id>/<id>-<version>.zip, with its icon and fanart, and listed in
@@ -18,8 +18,10 @@ The highest-numbered supported audio file is copied to:
 
 A current.json manifest identifies the published audio file.
 
-After a successful build, superseded add-on ZIP files in Later/ are deleted.
-Audio files in Later/ are not deleted.
+After a successful build:
+- Superseded add-on ZIP files are removed from Later/.
+- Older numbered background audio files are removed from Later/.
+- The newest selected background audio file remains in Later/.
 
     --base  Address files are served from
     --out   Output directory (default: Now/)
@@ -47,8 +49,11 @@ DEFAULT_BASE = (
 )
 
 TOO_BIG = 90 * 1024 * 1024
+
 REPOSITORY_SOURCE = os.path.join(
-    HERE, '_source', 'repository.longtime'
+    HERE,
+    '_source',
+    'repository.longtime',
 )
 
 STAMP = (2026, 1, 1, 0, 0, 0)
@@ -64,6 +69,7 @@ JUNK = (
 )
 
 # Directories under Now/ maintained outside the add-on ZIP build.
+# These are not deleted during the normal output cleanup.
 PRESERVED_OUTPUT_DIRS = {
     'repository.longtime',
     'io.page.background.track',
@@ -144,6 +150,7 @@ def compare(a, b):
                 if i < len(text_a)
                 else 0
             )
+
             order_b = (
                 _order(text_b[i])
                 if i < len(text_b)
@@ -285,8 +292,10 @@ def write_zip(path, folder, files):
                 '{0}/{1}'.format(folder, name),
                 STAMP,
             )
+
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o644 << 16
+
             z.writestr(info, data)
 
 
@@ -321,8 +330,10 @@ def publish_background_audio(source, out):
         Now/io.page.background.track/<filename>
         Now/io.page.background.track/current.json
 
-    If no matching audio file exists in source/, the existing published
-    audio is left untouched.
+    Returns the selected filename.
+
+    If no matching audio file exists, the existing published track
+    is left unchanged and None is returned.
     """
     if not os.path.isdir(source):
         print(
@@ -364,15 +375,18 @@ def publish_background_audio(source, out):
         )
         return None
 
-    # Highest integer wins. If numbers tie, filename order breaks the tie.
-    candidates.sort(key=lambda item: (item[0], item[1], item[2]))
+    # Highest integer wins.
+    # If numbers tie, filename ordering breaks the tie.
+    candidates.sort(
+        key=lambda item: (item[0], item[1], item[2])
+    )
 
     number, _, filename, source_path, extension = candidates[-1]
 
     audio_dir = os.path.join(out, AUDIO_FOLDER)
     os.makedirs(audio_dir, exist_ok=True)
 
-    # Remove older published tracks that match the numbered naming format.
+    # Remove previously published numbered audio tracks.
     # Unrelated files in this directory are left untouched.
     for name in os.listdir(audio_dir):
         path = os.path.join(audio_dir, name)
@@ -384,7 +398,11 @@ def publish_background_audio(source, out):
             os.remove(path)
 
     destination = os.path.join(audio_dir, filename)
-    shutil.copy2(source_path, destination)
+
+    shutil.copy2(
+        source_path,
+        destination,
+    )
 
     manifest = {
         'number': number,
@@ -392,7 +410,10 @@ def publish_background_audio(source, out):
         'type': AUDIO_TYPES[extension],
     }
 
-    manifest_path = os.path.join(audio_dir, 'current.json')
+    manifest_path = os.path.join(
+        audio_dir,
+        'current.json',
+    )
 
     with open(
         manifest_path,
@@ -408,6 +429,48 @@ def publish_background_audio(source, out):
     )
 
     return filename
+
+
+def prune_source_audio(source, keep_filename):
+    """
+    Delete older numbered background audio files from Later/.
+
+    Retain the currently selected track so it remains the source
+    for subsequent builds.
+
+    Only supported numbered MP3, OPUS, and M4A files are affected.
+
+    This function is called after successful publication and
+    index generation.
+    """
+    if not keep_filename or not os.path.isdir(source):
+        return []
+
+    removed = []
+
+    for name in sorted(os.listdir(source)):
+        path = os.path.join(source, name)
+
+        if not os.path.isfile(path):
+            continue
+
+        if not AUDIO_FILENAME_RE.fullmatch(name):
+            continue
+
+        # Keep the selected track.
+        if name == keep_filename:
+            continue
+
+        os.remove(path)
+        removed.append(name)
+
+        print(
+            'removed older background audio from Later: {0}'.format(
+                name
+            )
+        )
+
+    return removed
 
 
 # The NightShift skin's colors for the listing pages.
@@ -557,14 +620,20 @@ def write_root_index(root, out):
         )
     ]
 
-    _listing(root, entries, 'Add-ons', out)
+    _listing(
+        root,
+        entries,
+        'Add-ons',
+        out,
+    )
 
 
 def prune_source(source, keep):
     """
     Remove superseded ZIP files after a successful build.
 
-    Non-ZIP files, including numbered audio tracks, are untouched.
+    Non-ZIP files, including numbered audio tracks, are untouched here.
+    Audio cleanup is handled separately by prune_source_audio().
     """
     removed = []
 
@@ -665,6 +734,7 @@ def build(base, out, source):
 
             if data is not None:
                 target = os.path.join(folder, asset)
+
                 os.makedirs(
                     os.path.dirname(target),
                     exist_ok=True,
@@ -732,23 +802,40 @@ def build(base, out, source):
         os.path.join(out, 'addons.xml.md5'),
         'w',
     ) as f:
-        f.write(hashlib.md5(text.encode('utf-8')).hexdigest())
+        f.write(
+            hashlib.md5(text.encode('utf-8')).hexdigest()
+        )
 
-    # Publish the newest numbered track before generating indexes,
-    # so the generated audio folder listing includes the selected file.
-    publish_background_audio(source, out)
+    # Publish the newest numbered track before generating indexes.
+    # Save the selected filename so older source tracks can be removed
+    # after the rest of the build succeeds.
+    audio_filename = publish_background_audio(
+        source,
+        out,
+    )
 
+    # Generate indexes after publishing the audio so the folder listing
+    # contains the selected filename and current.json.
     write_indexes(out)
 
+    # Keep the selected add-on ZIPs in Later/.
     keep = {
         os.path.abspath(found[ident][1])
         for ident in found
     }
 
+    # Remove superseded add-on ZIPs.
     removed = (
         prune_source(source, keep)
         if os.path.isdir(source)
         else []
+    )
+
+    # Remove older numbered audio files from Later/.
+    # The selected track remains as the source for the next build.
+    removed_audio = prune_source_audio(
+        source,
+        audio_filename,
     )
 
     return (
@@ -790,14 +877,23 @@ if __name__ == '__main__':
             args.out,
             args.now,
         )
+
     except RepoError as error:
         sys.exit('error: {0}'.format(error))
 
     if os.path.abspath(args.out) == os.path.join(ROOT, OUT_NAME):
-        write_root_index(ROOT, args.out)
+        write_root_index(
+            ROOT,
+            args.out,
+        )
 
     for ident, version in published:
-        print('published {0} {1}'.format(ident, version))
+        print(
+            'published {0} {1}'.format(
+                ident,
+                version,
+            )
+        )
 
     for name in removed:
         print(
