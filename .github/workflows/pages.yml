@@ -1,6 +1,8 @@
 name: Publish GitHub Pages
 
 on:
+  # Keep direct website edits deployable. Repository-generated Now/ updates
+  # are deployed explicitly by build-repo.yml after its commit completes.
   push:
     branches:
       - OnTheSide
@@ -9,14 +11,6 @@ on:
       - 'Now/**'
       - 'tools/validate_repo_files.py'
       - '.github/workflows/pages.yml'
-
-  workflow_run:
-    workflows:
-      - build repo
-    types:
-      - completed
-    branches:
-      - OnTheSide
 
   workflow_dispatch:
 
@@ -29,10 +23,6 @@ concurrency:
 
 jobs:
   build:
-    if: >-
-      github.event_name != 'workflow_run' ||
-      github.event.workflow_run.conclusion == 'success'
-
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
