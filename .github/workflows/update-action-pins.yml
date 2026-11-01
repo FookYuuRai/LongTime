@@ -1,0 +1,53 @@
+name: Update pinned GitHub Actions
+
+on:
+  schedule:
+    - cron: '15 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-action-pins
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out OnTheSide
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git clone --branch OnTheSide \
+            "https://github.com/${GITHUB_REPOSITORY}.git" .
+
+      - name: Update compatible action pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/update_action_pins.py
+
+      - name: Commit and push updated pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet; then
+            echo "No compatible action pin updates found."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add .github/workflows
+          git commit -m "update pinned GitHub Actions"
+          git push origin HEAD:OnTheSide
