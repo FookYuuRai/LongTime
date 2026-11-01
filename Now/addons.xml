@@ -315,7 +315,7 @@
     <license>GPL-3.0-or-later</license>
   </extension>
 </addon>
-<addon id="repository.longtime" name="LongTime" version="1.0.0" provider-name="LongTime">
+<addon id="repository.longtime" name="LongTime" version="1.0.1" provider-name="LongTime">
 	<requires>
 		<import addon="xbmc.addon" version="12.0.0"/>
 	</requires>
