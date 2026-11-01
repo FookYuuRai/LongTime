@@ -24,9 +24,9 @@ import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-OUT_NAME = 'now'                                     # the folder Kodi reads (published)
-SOURCE_NAME = 'later'                                # the folder with the source zips
-DEFAULT_BASE = 'https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/now/'
+OUT_NAME = 'Now'                                     # the folder Kodi reads (published)
+SOURCE_NAME = 'Later'                                # the folder with the source zips
+DEFAULT_BASE = 'https://raw.githubusercontent.com/FookYuuRai/LongTime/OnTheSide/Now/'
 TOO_BIG = 90 * 1024 * 1024                          # GitHub refuses files over 100 MB; stay well under
 REPOSITORY_SOURCE = os.path.join(HERE, '_source', 'repository.longtime')
 STAMP = (2026, 1, 1, 0, 0, 0)                        # a fixed date: the same files give the same zip
