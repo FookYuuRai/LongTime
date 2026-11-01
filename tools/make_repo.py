@@ -483,13 +483,14 @@ li a::before{content:"\\25B8";display:inline-block;width:1.4em;color:var(--blue)
 li a.file::before{content:"\\2193";color:var(--pink)}
 .foot{padding:10px 18px;color:var(--grey);font-size:.8rem;border-top:1px solid var(--line)}
 @media (max-width:520px){.wrap{padding:12px 8px 24px}.head h1{font-size:1.05rem}}
-.audio-player{position:fixed;z-index:10000;left:50%;bottom:10px;transform:translateX(-50%);width:calc(100% - 24px);max-width:920px;margin:0;padding:10px 14px;border:1px solid rgba(53,191,255,.5);border-radius:6px;background:rgba(3,5,12,.94);box-shadow:0 0 20px rgba(53,191,255,.2);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 12px}
-.audio-player strong{color:var(--blue)}
-.audio-player p{grid-column:1/-1;margin:0;color:var(--grey);font-size:.85rem;overflow-wrap:anywhere}
-.audio-player audio{width:100%;min-width:0;margin:0}
-.audio-player button{padding:10px 16px;border:1px solid #35bfff;border-radius:4px;background:#123b66;color:#fff;font-size:15px;cursor:pointer;white-space:nowrap}
+.audio-player{position:fixed;z-index:10000;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));bottom:calc(8px + env(safe-area-inset-bottom,0px));width:auto;max-width:920px;margin:0 auto;padding:10px 12px;border:1px solid rgba(53,191,255,.5);border-radius:6px;background:rgba(3,5,12,.96);box-shadow:0 0 20px rgba(53,191,255,.2);display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch;gap:8px;box-sizing:border-box}
+.audio-player strong{color:var(--blue);display:block;min-width:0;overflow-wrap:anywhere}
+.audio-player p{grid-column:1/-1;margin:0;color:var(--grey);font-size:.85rem;line-height:1.35;overflow-wrap:anywhere}
+.audio-player audio{grid-column:1/-1;display:block;width:100%;max-width:100%;min-width:0;height:54px;margin:0;box-sizing:border-box}
+.audio-player button{grid-column:1/-1;display:block;width:100%;min-width:0;min-height:42px;padding:10px 12px;border:1px solid #35bfff;border-radius:4px;background:#123b66;color:#fff;font-size:15px;cursor:pointer;white-space:normal;overflow-wrap:anywhere;box-sizing:border-box}
 .audio-player button:disabled{opacity:.55;cursor:wait}
-@media (max-width:520px){.wrap{padding-bottom:190px}.audio-player{grid-template-columns:1fr;bottom:6px;gap:8px}.audio-player button{width:100%}}
+.audio-player button[hidden]{display:none}
+@media (max-width:520px){.wrap{padding:12px 8px 230px}.audio-player{gap:7px;padding:9px 10px}.audio-player audio{height:52px}.audio-player p{font-size:.8rem}}
 """
 
 
