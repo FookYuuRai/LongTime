@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addons>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.118">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.136">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -28,16 +28,72 @@
         <news>Check the Changelog in Tools &gt; Changelog &amp; Log Utils[/COLOR]</news>
     </extension>
 </addon>
-<addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.2.0" provider-name="Custom">
-  <requires><import addon="xbmc.python" version="3.0.1"/></requires>
-  <extension point="xbmc.service" library="service.py" start="startup"/>
-  <extension point="xbmc.python.script" library="folders.py"/>
-  <extension point="xbmc.addon.metadata">
-    <summary lang="en_GB">Plays the 26 built-in background tracks (each can be switched off), plus music from folders you add, while browsing the Nightshift skin.</summary>
-    <description lang="en_GB">Plays the 26 built-in tracks while the Nightshift Neon skin is active. In the add-on settings every built-in track has its own on/off switch, and you can add your own music folders (subfolders are included), remove them, and turn the built-in tracks or shuffle on or off. It yields to normal audio/video playback and restarts ambient music when playback ends.</description>
-    <platform>all</platform>
-    <license>Custom personal-use companion to Nightshift Neon</license>
-  </extension>
+<addon id="script.skin.info.service"
+	   name="Skin Info Service"
+	   version="2.0.2~neon3"
+	   provider-name="MikeSiLVO">
+	<requires>
+		<import addon="xbmc.python" version="3.0.1" />
+		<import addon="xbmc.json" version="13.5.0" />
+		<import addon="script.module.pil" version="1.1.7" />
+		<import addon="script.module.requests" version="2.31.0" />
+	</requires>
+	<extension point="xbmc.python.pluginsource" library="plugin.py">
+		<provides>video</provides>
+	</extension>
+	<extension point="xbmc.python.library" library="script.py" />
+	<extension point="xbmc.service" library="service.py" />
+	<extension point="kodi.context.item">
+		<menu id="kodi.core.main">
+			<item library="context.py">
+				<label>$ADDON[script.skin.info.service 32102]</label>
+				<visible>!String.IsEmpty(ListItem.DBID) + [String.IsEqual(ListItem.DBType,movie) | String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,season) | String.IsEqual(ListItem.DBType,episode) | String.IsEqual(ListItem.DBType,musicvideo) | String.IsEqual(ListItem.DBType,set) | String.IsEqual(ListItem.DBType,artist) | String.IsEqual(ListItem.DBType,album) | String.IsEqual(ListItem.DBType,song)] + [Addon.SettingBool(script.skin.info.service,context_show_review_artwork) | Addon.SettingBool(script.skin.info.service,context_show_download_artwork) | Addon.SettingBool(script.skin.info.service,context_show_update_ratings) | Addon.SettingBool(script.skin.info.service,context_show_edit_metadata) | Addon.SettingBool(script.skin.info.service,context_show_export_nfo)]</visible>
+			</item>
+		</menu>
+	</extension>
+	<extension point="xbmc.addon.metadata">
+		<platform>all</platform>
+		<license>GPL-3.0-only</license>
+		<source>https://github.com/MikeSiLVO/script.skin.info.service</source>
+		<forum>https://forum.kodi.tv/showthread.php?tid=384016</forum>
+		<assets>
+			<icon>icon.png</icon>
+			<fanart>fanart.jpg</fanart>
+		</assets>
+		<news>
+2.0.1~beta11
+- Seasons can fetch fanart in Manage Artwork, picked from the show's fanart
+- New overlays in the artwork pickers mark the current art and the show's fanart, skins with their own picker XML can use the is_inherited property
+- Ratings with no votes are left empty instead of showing 0.0
+- Estuary: colored media flags on Piers
+		</news>
+		<summary lang="cs_CZ">Poskytuje vzhledům podrobné informace o médiích a grafiku.</summary>
+		<summary lang="en_GB">Provides rich media info and artwork to skins.</summary>
+		<summary lang="en_US">Provides rich media info and artwork to skins.</summary>
+		<summary lang="es_ES">Provee información enriquecida del contenido y arte a las skins.</summary>
+		<summary lang="fr_FR">Fournit aux habillages des informations enrichies sur les médias ainsi que leurs visuels.</summary>
+		<summary lang="hu_HU">Médiainformációkat és grafikákat biztosít a felszínekhez.</summary>
+		<summary lang="it_IT">Fornisce informazioni sui media e artwork di alta qualità alle skin.</summary>
+		<summary lang="pl_PL">Dostarcza bogatych informacji o mediach i grafikę dla skórek.</summary>
+		<summary lang="ru_RU">Предоставляет обложкам подробную информацию о медиа и иллюстрации.</summary>
+		<summary lang="zh_CN">为皮肤提供丰富的媒体信息和艺术图。</summary>
+		<description lang="cs_CZ">Služba Skin Info Service poskytuje vzhledům podrobná metadata a grafiku nad rámec toho, co Kodi standardně zpřístupňuje. Přidává další vlastnosti, například hodnocení z více zdrojů, grafiku, podrobnosti o streamu a informace o obsazení a ději filmů, seriálů, epizod, sbírek filmů, hudebních videoklipů, interpretů a alb; využívá přitom knihovnu i online data. Obsahuje také nástroj pro vyhledání animovaných plakátů GIF a jejich přidání do knihovny.</description>
+		<description lang="en_GB">Skin Info Service provides skins with rich metadata and artwork beyond what Kodi exposes by default. It adds extra properties such as ratings from multiple sources, artwork, stream details, and cast and plot information for movies, TV shows, episodes, sets, music videos, artists, and albums, drawing on both your library and online data. It also includes a tool to find and add animated GIF posters to your library.</description>
+		<description lang="en_US">Skin Info Service provides skins with rich metadata and artwork beyond what Kodi exposes by default. It adds extra properties such as ratings from multiple sources, artwork, stream details, and cast and plot information for movies, TV shows, episodes, sets, music videos, artists, and albums, drawing on both your library and online data. It also includes a tool to find and add animated GIF posters to your library.</description>
+		<description lang="es_ES">Skin Info Service provee skins con metadata enriquecida y mejor arte de lo que expone Kodi por defecto. Añade propiedades extra como las valoraciones desde distintas fuentes, arte, detalles de la emisión, elenco y argumento de las películas, programas de TV, episodios, sagas, vídeos musicales, intérpretes y álbumes, pintándolo todo en la colección y datos online. Incluye tambien una herramietna para buscar y añadir carteles de GIF animados para la colección.</description>
+		<description lang="fr_FR">Skin Info Service fournit des informations supplémentaires telles que les notes, les illustrations et les détails de flux pour les films, les séries, les sagas, les artistes et les albums. Comprend un outil de recherche d&apos;affiches GIF pour trouver et ajouter automatiquement des affiches GIF animées à votre médiathèque.</description>
+		<description lang="hu_HU">A Skin Info Service gazdag metaadatokkal és grafikákkal látja el a felszíneket, amelyek túlmutatnak azon, amit a Kodi alapértelmezés szerint megjelenít. Extra tulajdonságokat ad hozzá, például értékeléseket több forrásból, grafikákat, streamelési részleteket, valamint szereplő- és cselekményinformációkat filmekhez, tévéműsorokhoz, epizódokhoz, díszletekhez, videoklipekhez, előadókhoz és albumokhoz, mind a médiatárad, mind az online adatok felhasználásával. Tartalmaz egy eszközt is, amellyel animált GIF-posztereket kereshetsz és adhatsz hozzá a médiatáradhoz.</description>
+		<description lang="it_IT">Skin Info Service fornisce alle skin metadati e artwork avanzati, oltre a quanto Kodi mostra di default. Aggiunge proprietà extra come le valutazioni da più fonti, artwork, dettagli del flusso e informazioni su cast e trama per film, serie TV, episodi, saghe cinematografiche, video musicali, artisti e album, attingendo sia dalla libreria che dai dati online. Include anche uno strumento per trovare e aggiungere poster GIF animati alla libreria.</description>
+		<description lang="pl_PL">Skin Info Service dostarcza skórkom bogate metadane i grafikę, wykraczając daleko poza to, co Kodi udostępnia domyślnie. Dodaje dodatkowe właściwości, takie jak oceny z wielu źródeł, grafikę, szczegóły transmisji oraz informacje o obsadzie i fabule filmów, seriali, odcinków, kolekcji filmowych, teledysków, wykonawców i albumów, korzystając zarówno z Twojej biblioteki, jak i danych online. Zawiera również narzędzie do wyszukiwania i dodawania animowanych plakatów GIF do Twojej biblioteki.</description>
+		<description lang="ru_RU">Skin Info Service предоставляет обложкам расширенные метаданные и иллюстрации, выходящие за рамки стандартных возможностей Kodi. Он добавляет дополнительные свойства, такие как рейтинги из нескольких источников, иллюстрации, сведения о потоках, а также информацию об актёрах и сюжете для фильмов, сериалов, серий, киноциклов, музыкальных клипов, исполнителей и альбомов, используя как вашу медиатеку, так и данные из интернета. Также включает инструмент для поиска и добавления в медиатеку анимированных постеров в формате GIF.</description>
+		<description lang="zh_CN">皮肤信息服务为皮肤提供超出 Kodi 默认范围的丰富元数据和艺术图。它添加了多种额外属性,例如来自多个来源的评分、艺术图、流媒体详情,以及电影、电视剧、剧集、合集、音乐视频、艺术家和专辑的演员阵容和剧情信息,数据来源包括您的媒体库和在线数据。它还包含一个工具,用于查找并向您的媒体库添加动画 GIF 海报。</description>
+		<disclaimer lang="cs_CZ">Tento doplněk využívá službu TMDb a její rozhraní API, ale nemá od TMDb oficiální podporu, certifikaci ani jiné schválení.</disclaimer>
+		<disclaimer lang="en_GB">This add-on uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.</disclaimer>
+		<disclaimer lang="en_US">This add-on uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.</disclaimer>
+		<disclaimer lang="it_IT">Questo add-on usa TMDB e le API di TMDB, ma non è approvato, certificato o altrimenti autorizzato da TMDB.</disclaimer>
+		<disclaimer lang="pl_PL">Ten dodatek korzysta z serwisu TMDB i interfejsów API TMDB, ale nie jest zatwierdzony, certyfikowany ani w żaden inny sposób wspierany przez TMDB.</disclaimer>
+		<disclaimer lang="ru_RU">Это дополнение использует TMDB и API TMDB, но не одобрено, не сертифицировано и иным образом не поддержано TMDB.</disclaimer>
+	</extension>
 </addon>
 <addon id="script.skinshortcuts" name="Skin Shortcuts" version="3.0.4" provider-name="MikeSiLVO">
     <requires>
@@ -107,16 +163,11 @@
         <description lang="zh_TW">插件为皮肤提供了简单的管理和用户连接方式列表 (需要皮肤支持)</description>
     </extension>
 </addon>
-<addon
-	id="service.languagepreferencemanagernext"
-	name="Language Preference Manager NeXt"
-	version="2.0"
-	provider-name="ace20022/scott967/rockrider69"
-	>
+<addon id="service.languagepreferencemanagernext" name="Language Preference Manager NeXt" version="2.0.12" provider-name="ace20022/scott967/rockrider69/FookYuuRai">
 	<requires>
-		<import addon="xbmc.python" version="3.0.0"/>
+		<import addon="xbmc.python" version="3.0.0" />
 	</requires>
-	<extension point="xbmc.service" library="default.py"/>
+	<extension point="xbmc.service" library="default.py" />
 	<extension point="xbmc.python.script" library="default.py">
 		<provides>executable</provides>
 	</extension>
@@ -194,7 +245,7 @@
         <assets>
             <icon>resources/icon.png</icon>
         </assets>
-        <news lang="en_GB">v0.1.16 - "Show what fingerprint.db holds" now opens a list of every show, its episodes, fingerprints and found segments, and the themes. v0.1.15 - Music and other background audio no longer start or reset the skip logic, and movies are ignored (episodes only: episode info or SxxEyy in the name; the "any long video" fallback is gone). Requests from other add-ons are ignored unless they are for an episode. v0.1.14 - New setting: end offset when NO end was found (credits / preview that run to the end of the video, counted from 10 s before the end). The end and credits end offsets now apply only to ends that were found. v0.1.13 - Fix: the end offsets (general and credits / outro) now also move the skip target of a credits or preview segment that has no end time of its own (it runs to the end of the video), which is when the log said the target was always 10 s before the end. v0.1.12 - Fix: offsets are now applied every time segments are read, so changing them works for episodes already looked up (before, the old offsets stayed baked in until the add-on restarted). v0.1.11 - New settings: separate start and end offsets for credits / outro segments (added on top of the general offsets). v0.1.10 - New settings: unselected button outline (faint / normal / strong) and card backdrop (transparent / light / dark). v0.1.9 - Skip buttons and cards now use the NightShift look: transparent, thin outline, neon border on the selected button (pill and card styles, 1080i and 720p). v0.1.8 - One zip for every device (64-bit ARM, 32-bit ARM, x86-64); on first start the add-on keeps the library of the device it runs on and deletes the others. v0.1.7 - The skip button hides after 12 s by default (never stays longer than 30 s). v0.1.6 - The card prefers the show fanart, then the thumbnail. v0.1.5 - The card shows the thumbnail and episode line the player supplies. v0.1.4 - The card style now copies the NightShift skip prompt (dimmed top, thumbnail, heading, episode line, round buttons) for every segment kind. v0.1.3 - Test popup works (settings action), visible button textures, card style with thumbnail, the skip button closes when another video starts, the extra skip-past-end seconds setting is gone (offsets replace it).</news>
+        <news lang="en_GB">v0.1.16 - "Show what fingerprint.db holds" now opens a list of every show, its episodes, fingerprints and found segments, and the themes. v0.1.15 - Music and other background audio no longer start or reset the skip logic, and movies are ignored (episodes only: episode info or SxxEyy in the name; the "any long video" fallback is gone). Requests from other add-ons are ignored unless they are for an episode. v0.1.14 - New setting: end offset when NO end was found (credits / preview that run to the end of the video, counted from 10 s before the end). The end and credits end offsets now apply only to ends that were found. v0.1.13 - Fix: the end offsets (general and credits / outro) now also move the skip target of a credits or preview segment that has no end time of its own (it runs to the end of the video), which is when the log said the target was always 10 s before the end. v0.1.12 - Fix: offsets are now applied every time segments are read, so changing them works for episodes already looked up (before, the old offsets stayed baked in until the add-on restarted). v0.1.11 - New settings: separate start and end offsets for credits / outro segments (added on top of the general offsets). v0.1.10 - New settings: unselected button outline (faint / normal / strong) and card backdrop (transparent / light / dark). v0.1.9 - Skip buttons and cards now use the Red Light look: transparent, thin outline, neon border on the selected button (pill and card styles, 1080i and 720p). v0.1.8 - One zip for every device (64-bit ARM, 32-bit ARM, x86-64); on first start the add-on keeps the library of the device it runs on and deletes the others. v0.1.7 - The skip button hides after 12 s by default (never stays longer than 30 s). v0.1.6 - The card prefers the show fanart, then the thumbnail. v0.1.5 - The card shows the thumbnail and episode line the player supplies. v0.1.4 - The card style now copies the Red Light skip prompt (dimmed top, thumbnail, heading, episode line, round buttons) for every segment kind. v0.1.3 - Test popup works (settings action), visible button textures, card style with thumbnail, the skip button closes when another video starts, the extra skip-past-end seconds setting is gone (offsets replace it).</news>
     </extension>
 </addon>
 <addon id="service.nntp.stream" version="0.2.3" name="NNTP Stream" provider-name="nntp-project">
@@ -213,7 +264,7 @@
     <news>0.2.3 - the unpacked file name no longer keeps commas and similar characters (a comma split the PlayMedia arguments, so the file was not opened). 0.2.2 - releases with obfuscated or unquoted file names are now recognised (the real names are read from the first article of each big file); ZIP releases are recognised as packed; the "no video file" message lists the biggest files. 0.2.1 - unpacking now reads the whole release as ONE long file through vfs.nntp (rapidyenc decoder, connections shared by speed) when it is installed; the Python downloader is the fallback. 0.2.0 - new: unpack_to() downloads a packed release (stored RAR 2-5 / ZIP, multi-volume) and unpacks its video into a folder, so it plays from disk with no debrid service. 0.1.1 - fixes: the service no longer hangs when Kodi stops or updates it (it polled the GUI, which deadlocked), the empty servers setting no longer errors, the add-on shows under Program add-ons (opens its settings) as well as Services, and the fallback uses the running service for its local server. 0.1.0 - first version: STAT availability check, plan writer, Python fallback (HTTPS on 127.0.0.1), native vfs.nntp support.</news>
   </extension>
 </addon>
-<addon id="skin.nightshift" version="1.3.7" name="Nightshift" provider-name="Custom skin; based on Kodi Estuary">
+<addon id="skin.nightshift" version="1.3.15" name="Nightshift" provider-name="Custom skin; based on Kodi Estuary">
   <requires>
     <import addon="xbmc.gui" version="5.18.0" />
   <import addon="script.skinshortcuts" version="3.0.4" /><import addon="script.skin.info.service" version="2.0.2~neon2" optional="true" /></requires>
