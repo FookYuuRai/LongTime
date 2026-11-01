@@ -7,8 +7,11 @@ addon.xml inside), run `python3 tools/make_repo.py`, commit, push. For every add
 version is published as Now/<id>/<id>-<version>.zip, with its icon and fanart, and listed in Now/addons.xml with
 Now/addons.xml.md5. The zip of the small repository add-on (the one Kodi installs once) is built as well.
 
-Also written: index.html pages for browsing on the site (the root, Now/ and each folder below it). Those pages only
-link to files on this same site. Later/ is the upload folder only; no page is written for it.
+After a successful build, every zip in Later/ that is not the published version of its add-on is deleted. Git history
+keeps the old copies. If the build fails, nothing in Later/ is deleted.
+
+Also written: index.html pages for browsing on the site (the root and Now/ and each folder below it). Those pages only
+link to files on this same site. No page is written for Later/.
 
   --base  the address the files are served from (default: this repository's raw files)
   --out   where the files are written (default: Now/)
@@ -196,6 +199,18 @@ def write_root_index(root, out):
     _listing(root, entries, 'Add-ons', out)
 
 
+def prune_source(source, keep):
+    """Delete every zip in the source folder that is not one of the published ones (keep: set of paths). Runs only
+    after a successful build. Git history keeps the deleted copies."""
+    removed = []
+    for name in sorted(os.listdir(source)):
+        path = os.path.join(source, name)
+        if name.lower().endswith('.zip') and os.path.abspath(path) not in keep:
+            os.remove(path)
+            removed.append(name)
+    return removed
+
+
 def build(base, out, source):
     found = {}                                          # id -> (version, zip path, addon.xml text, files)
     for name in sorted(os.listdir(source)) if os.path.isdir(source) else []:
@@ -248,7 +263,9 @@ def build(base, out, source):
     with open(os.path.join(out, 'addons.xml.md5'), 'w') as f:
         f.write(hashlib.md5(text.encode('utf-8')).hexdigest())
     write_indexes(out)
-    return [(i, found[i][0]) for i in sorted(found)], (repository_id, repository_version)
+    keep = {os.path.abspath(found[i][1]) for i in found}
+    removed = prune_source(source, keep) if os.path.isdir(source) else []
+    return [(i, found[i][0]) for i in sorted(found)], (repository_id, repository_version), removed
 
 
 if __name__ == '__main__':
@@ -258,11 +275,14 @@ if __name__ == '__main__':
     parser.add_argument('--now', default=os.path.join(ROOT, SOURCE_NAME))
     args = parser.parse_args()
     try:
-        published, repository = build(args.base if args.base.endswith('/') else args.base + '/', args.out, args.now)
+        published, repository, removed = build(args.base if args.base.endswith('/') else args.base + '/',
+                                               args.out, args.now)
     except RepoError as e:
         sys.exit('error: {0}'.format(e))
     if os.path.abspath(args.out) == os.path.join(ROOT, OUT_NAME):
         write_root_index(ROOT, args.out)
     for ident, version in published:
         print('published {0} {1}'.format(ident, version))
+    for name in removed:
+        print('removed old zip from {0}: {1}'.format(SOURCE_NAME, name))
     print('repository add-on {0} {1}'.format(*repository))
