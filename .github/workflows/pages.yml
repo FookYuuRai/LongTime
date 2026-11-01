@@ -31,6 +31,7 @@ jobs:
     if: >-
       github.event_name != 'workflow_run' ||
       github.event.workflow_run.conclusion == 'success'
+
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -55,16 +56,59 @@ jobs:
           rm -rf _site
           mkdir -p _site
 
-          # Copy the homepage and the complete Now repository.
+          # Copy the homepage and complete Now repository.
           cp index.html _site/index.html
           cp -a Now _site/Now
 
-          # Verify the background track exists at its new location.
-          test -s Now/io.page.background.track/27_aquatic-ambiance.opus
+          # Background audio location.
+          AUDIO_DIR="Now/io.page.background.track"
+          AUDIO_MANIFEST="$AUDIO_DIR/current.json"
+
+          # Confirm the audio manifest exists.
+          test -s "$AUDIO_MANIFEST"
+
+          # Read the selected filename from current.json.
+          AUDIO_FILE="$(python3 -c '
+          import json
+          import re
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as f:
+              manifest = json.load(f)
+
+          filename = manifest.get("file")
+
+          if (
+              not isinstance(filename, str)
+              or not re.fullmatch(
+                  r"\d+_.+\.(mp3|opus|m4a)",
+                  filename,
+                  re.IGNORECASE
+              )
+          ):
+              raise SystemExit(
+                  "Invalid background audio filename in current.json"
+              )
+
+          print(filename)
+          ' "$AUDIO_MANIFEST")"
+
+          echo "Selected background audio: $AUDIO_FILE"
+
+          # Confirm the selected audio exists in the source repository.
+          test -s "$AUDIO_DIR/$AUDIO_FILE"
+
+          # Confirm the manifest was copied to the Pages staging directory.
+          test -s "_site/$AUDIO_DIR/current.json"
+
+          # Confirm the selected audio was copied to the Pages staging directory.
+          test -s "_site/$AUDIO_DIR/$AUDIO_FILE"
+
+          # Confirm the normal website files exist.
           test -s _site/index.html
           test -s _site/Now/addons.xml
-          test -s _site/Now/io.page.background.track/27_aquatic-ambiance.opus
 
+          echo "Verified background audio: $AUDIO_FILE"
           echo "Website files prepared successfully."
 
       - name: Upload Pages artifact
