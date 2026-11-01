@@ -7,8 +7,12 @@ addon.xml inside), run `python3 tools/make_repo.py`, commit, push. For every add
 version is published as repo/<id>/<id>-<version>.zip, with its icon and fanart, and listed in repo/addons.xml with
 repo/addons.xml.md5. The zip of the small repository add-on (the one Kodi installs once) is built as well.
 
+Also written: index.html pages for browsing on the site (the root, repo/ and each folder below it, and now/, which
+lists the zips waiting to be published). Those pages only link to files on this same site.
+
   --base  the address the files are served from (default: this repository's raw files)
   --out   where the files are written (default: repo/)
+  --now   the folder with the source zips (default: now/)
 """
 import argparse
 import hashlib
@@ -184,10 +188,20 @@ def write_indexes(out):
         _listing(folder, entries, title.replace('/', ' / '), out)
 
 
-def write_root_index(root, out):
-    """index.html at the top of the site: a link to the folder with the repository files. Kodi does not read this page."""
-    rel = os.path.relpath(out, root).replace(os.sep, '/')
-    _listing(root, [(rel, True)], 'Add-ons', out)
+def write_root_index(root, out, now_dir):
+    """index.html at the top of the site: links to the repository files (repo/) and to the zips waiting in now/.
+    Kodi's file manager ignores links that contain a path, so the links are folders of this site."""
+    entries = [(os.path.relpath(out, root).replace(os.sep, '/'), True)]
+    if os.path.isdir(now_dir):
+        entries.append((os.path.relpath(now_dir, root).replace(os.sep, '/'), True))
+    _listing(root, entries, 'Add-ons', out)
+
+
+def write_now_index(now_dir, out):
+    """index.html in now/: the add-on zips waiting to be published, as links to the zips on this site. Zips that are
+    not the newest version of their add-on stay listed until they are removed from now/."""
+    zips = sorted(n for n in os.listdir(now_dir) if n.lower().endswith('.zip'))
+    _listing(now_dir, [(n, False) for n in zips], 'now', out)
 
 
 def build(base, out, source):
@@ -256,7 +270,9 @@ if __name__ == '__main__':
     except RepoError as e:
         sys.exit('error: {0}'.format(e))
     if os.path.abspath(args.out) == os.path.join(ROOT, 'repo'):
-        write_root_index(ROOT, args.out)
+        write_root_index(ROOT, args.out, args.now)
+    if os.path.abspath(args.now) == os.path.join(ROOT, 'now') and os.path.isdir(args.now):
+        write_now_index(args.now, args.out)
     for ident, version in published:
         print('published {0} {1}'.format(ident, version))
     print('repository add-on {0} {1}'.format(*repository))
