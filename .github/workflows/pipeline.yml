@@ -11,8 +11,10 @@ on:
       - 'tools/make_repo.py'
       - 'tools/validate_repo_files.py'
       - 'tools/_source/**'
+
   schedule:
     - cron: '23 */6 * * *'
+
   workflow_dispatch:
     inputs:
       pack_url:
@@ -36,7 +38,7 @@ jobs:
     name: "1. Update ambience audio pack"
     uses: ./.github/workflows/update-nightshift-ambience-pack.yml
     with:
-      pack_url: ${{ github.event.inputs.pack_url || 'https://github.com/FookYuuRai/LongTime/releases/download/ambience-audio-v1/ambience-audio-opus96.zip' }}
+      pack_url: ${{ inputs.pack_url || 'https://github.com/FookYuuRai/LongTime/releases/download/ambience-audio-v1/ambience-audio-opus96.zip' }}
     permissions:
       contents: write
 
@@ -52,7 +54,6 @@ jobs:
     needs: build-repo
     uses: ./.github/workflows/pages.yml
     permissions:
-      actions: read
       contents: read
       pages: write
       id-token: write
