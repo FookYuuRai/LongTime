@@ -3,7 +3,6 @@ name: Prune old successful workflow history
 on:
   workflow_run:
     workflows:
-      - build repo
       - Publish GitHub Pages
       - Update pinned GitHub Actions
     types:
@@ -333,7 +332,23 @@ jobs:
             console.log(`Workflow: ${workflowIdOrFile}`);
             console.log(`Branch: ${branch}`);
 
+            // Prune the workflow that just completed successfully.
             await pruneOlderRuns(workflowIdOrFile, branch, label);
+
+            // When Pages completes successfully, it is safe to prune old
+            // repository-build history too. This replaces the old premature
+            // prune dispatch from build-repo.yml.
+            if (
+              eventName === "workflow_run" &&
+              workflowIdOrFile !== "build-repo.yml"
+            ) {
+              await pruneOlderRuns(
+                "build-repo.yml",
+                targetBranch,
+                "build-repo.yml after successful workflow completion"
+              );
+            }
+
             await pruneOwnOlderRuns();
 
             console.log("Workflow-history cleanup completed.");
