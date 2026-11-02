@@ -1,38 +1,7 @@
 name: Prune old successful workflow history
 
 on:
-  workflow_run:
-    workflows:
-      - Publish GitHub Pages
-      - Update pinned GitHub Actions
-    types:
-      - completed
-    branches:
-      - OnTheSide
-
-  workflow_dispatch:
-    inputs:
-      source_run_id:
-        description: "Successful source workflow run ID to clean up"
-        required: false
-        type: string
-      workflow_file:
-        description: "Workflow history to prune when no source run ID is supplied"
-        required: false
-        type: choice
-        options:
-          - build-repo.yml
-          - pages.yml
-          - update-action-pins.yml
-          - pages-build-deployment (delete all generated history)
-      confirm_cleanup:
-        description: "Type DELETE to confirm manual cleanup"
-        required: false
-        default: "NO"
-        type: choice
-        options:
-          - "NO"
-          - "DELETE"
+  workflow_call:
 
 permissions:
   actions: write
@@ -43,54 +12,23 @@ concurrency:
 
 jobs:
   prune:
-    if: >-
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success') ||
-      (github.event_name == 'workflow_dispatch' &&
-       (inputs.source_run_id != '' ||
-        inputs.confirm_cleanup == 'DELETE'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - name: Prune workflow history
+      - name: Prune old completed pipeline runs
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
-          EVENT_NAME: ${{ github.event_name }}
-          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-          MANUAL_WORKFLOW: ${{ inputs.workflow_file }}
-          SOURCE_EVENT_RUN_ID: ${{ github.event.workflow_run.id }}
-          SOURCE_EVENT_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
-          SOURCE_EVENT_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          SOURCE_EVENT_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-          TARGET_BRANCH: OnTheSide
           CURRENT_RUN_ID: ${{ github.run_id }}
-          CONFIRM_CLEANUP: ${{ inputs.confirm_cleanup }}
         run: |
           set -euo pipefail
 
           node <<'NODE'
           const repository = process.env.REPOSITORY;
           const token = process.env.GH_TOKEN;
-          const eventName = process.env.EVENT_NAME;
-          const suppliedRunId = process.env.SOURCE_RUN_ID;
-          const manualWorkflow = process.env.MANUAL_WORKFLOW;
-          const eventRunId = process.env.SOURCE_EVENT_RUN_ID;
-          const eventWorkflowId = process.env.SOURCE_EVENT_WORKFLOW_ID;
-          const eventBranch = process.env.SOURCE_EVENT_BRANCH;
-          const eventConclusion = process.env.SOURCE_EVENT_CONCLUSION;
-          const targetBranch = process.env.TARGET_BRANCH;
-          const currentRunId = process.env.CURRENT_RUN_ID;
-          const confirmation = process.env.CONFIRM_CLEANUP;
-
-          const LEGACY_PAGES_ID = 397459787;
-          const LEGACY_PAGES_PATH = "dynamic/pages/pages-build-deployment";
-          const LEGACY_OPTION =
-            "pages-build-deployment (delete all generated history)";
-          const SELF_WORKFLOW_PATH =
-            ".github/workflows/prune-old-runs.yml";
+          const currentRunId = String(process.env.CURRENT_RUN_ID);
 
           if (!repository || !token || !currentRunId) {
             throw new Error("Missing repository, token, or current run ID.");
@@ -123,30 +61,18 @@ jobs:
             return response.json();
           }
 
-          async function getRun(runId) {
-            if (!/^\d+$/.test(String(runId))) {
-              throw new Error("source_run_id must be a numeric workflow run ID.");
-            }
-
-            return api(
-              `/repos/${repository}/actions/runs/${encodeURIComponent(runId)}`
-            );
-          }
-
-          async function getRuns(workflowIdOrFile, branch) {
+          async function getPipelineRuns() {
             const runs = [];
 
             for (let page = 1; page <= 10; page++) {
               const params = new URLSearchParams({
                 per_page: "100",
-                page: String(page)
+                page: String(page),
+                branch: "OnTheSide"
               });
 
-              if (branch) params.set("branch", branch);
-
               const result = await api(
-                `/repos/${repository}/actions/workflows/` +
-                `${encodeURIComponent(workflowIdOrFile)}/runs?${params}`
+                `/repos/${repository}/actions/workflows/pipeline.yml/runs?${params}`
               );
 
               const batch = result.workflow_runs || [];
@@ -158,200 +84,48 @@ jobs:
             return runs;
           }
 
-          async function deleteCompletedRuns(runs, predicate, label) {
-            const selected = runs.filter(run =>
-              run.status === "completed" && predicate(run)
+          async function main() {
+            const runs = await getPipelineRuns();
+            const todayUTC = new Date().toISOString().slice(0, 10);
+
+            const candidates = runs.filter(run =>
+              run.status === "completed" &&
+              String(run.id) !== currentRunId &&
+              run.created_at.slice(0, 10) < todayUTC
             );
 
-            console.log(`${label}: ${selected.length} completed run(s) selected.`);
+            console.log(`Inspected ${runs.length} pipeline run(s).`);
+            console.log(`Retaining runs created on ${todayUTC} UTC.`);
+            console.log(`Selected ${candidates.length} older completed run(s).`);
 
-            let deleted = 0;
             let failed = 0;
 
-            for (const run of selected) {
+            for (const run of candidates) {
               try {
                 await api(
                   `/repos/${repository}/actions/runs/${run.id}`,
                   { method: "DELETE" }
                 );
-                deleted++;
+
                 console.log(
-                  `Deleted ${label} run ${run.id}: ${run.created_at} ` +
-                  `(${run.conclusion || run.status})`
+                  `Deleted pipeline run ${run.id}, created ${run.created_at}, ` +
+                  `conclusion ${run.conclusion || "unknown"}.`
                 );
               } catch (error) {
                 failed++;
                 console.error(
-                  `Could not delete run ${run.id}: ${error.message}`
+                  `Could not delete pipeline run ${run.id}: ${error.message}`
                 );
               }
 
               await new Promise(resolve => setTimeout(resolve, 150));
             }
 
-            console.log(`${label}: deleted ${deleted}; failed ${failed}.`);
-
             if (failed) {
-              throw new Error(`${failed} run(s) could not be deleted.`);
-            }
-          }
-
-          async function pruneOlderRuns(workflowIdOrFile, branch, label) {
-            const runs = await getRuns(workflowIdOrFile, branch);
-            const todayUTC = new Date().toISOString().slice(0, 10);
-
-            console.log(`${label}: inspected ${runs.length} run(s).`);
-            console.log(`${label}: retaining runs created on ${todayUTC} UTC.`);
-
-            await deleteCompletedRuns(
-              runs,
-              run => run.created_at.slice(0, 10) < todayUTC,
-              label
-            );
-          }
-
-          async function pruneAllLegacyPagesHistory() {
-            const workflow = await api(
-              `/repos/${repository}/actions/workflows/${LEGACY_PAGES_ID}`
-            );
-
-            if (
-              workflow.id !== LEGACY_PAGES_ID ||
-              workflow.path !== LEGACY_PAGES_PATH
-            ) {
-              throw new Error(
-                "Safety check failed: generated Pages workflow ID/path " +
-                "did not match. Nothing was deleted."
-              );
+              throw new Error(`Failed to delete ${failed} old pipeline run(s).`);
             }
 
-            const runs = await getRuns(LEGACY_PAGES_ID, null);
-
-            await deleteCompletedRuns(
-              runs,
-              () => true,
-              "generated pages-build-deployment"
-            );
-          }
-
-          async function findOwnWorkflowId() {
-            for (let page = 1; page <= 10; page++) {
-              const result = await api(
-                `/repos/${repository}/actions/workflows?per_page=100&page=${page}`
-              );
-
-              const workflows = result.workflows || [];
-              const own = workflows.find(
-                workflow => workflow.path === SELF_WORKFLOW_PATH
-              );
-
-              if (own) return own.id;
-              if (workflows.length < 100) break;
-            }
-
-            throw new Error(`Could not find ${SELF_WORKFLOW_PATH}.`);
-          }
-
-          async function pruneOwnOlderRuns() {
-            const workflowId = await findOwnWorkflowId();
-            const runs = await getRuns(workflowId, targetBranch);
-            const todayUTC = new Date().toISOString().slice(0, 10);
-
-            await deleteCompletedRuns(
-              runs,
-              run =>
-                String(run.id) !== String(currentRunId) &&
-                run.created_at.slice(0, 10) < todayUTC,
-              "prune-old-runs.yml"
-            );
-          }
-
-          async function main() {
-            let workflowIdOrFile;
-            let branch = targetBranch;
-            let label;
-
-            if (eventName === "workflow_run") {
-              if (eventConclusion !== "success") {
-                console.log("Source workflow did not succeed; skipping cleanup.");
-                return;
-              }
-
-              workflowIdOrFile = eventWorkflowId;
-              branch = eventBranch || targetBranch;
-              label = `source run ${eventRunId}`;
-            } else if (suppliedRunId) {
-              const sourceRun = await getRun(suppliedRunId);
-
-              if (sourceRun.status !== "completed" ||
-                  sourceRun.conclusion !== "success") {
-                throw new Error(
-                  `Source run ${suppliedRunId} is not completed successfully.`
-                );
-              }
-
-              if (sourceRun.head_branch !== targetBranch) {
-                throw new Error(
-                  `Source run branch is ${sourceRun.head_branch}, not ` +
-                  `${targetBranch}; refusing cleanup.`
-                );
-              }
-
-              workflowIdOrFile = sourceRun.workflow_id;
-              branch = sourceRun.head_branch;
-              label = `source workflow ${sourceRun.name} (run ${suppliedRunId})`;
-            } else {
-              if (confirmation !== "DELETE") {
-                throw new Error(
-                  "Manual cleanup requires confirm_cleanup=DELETE."
-                );
-              }
-
-              if (!manualWorkflow) {
-                throw new Error(
-                  "Select workflow_file or supply source_run_id."
-                );
-              }
-
-              if (manualWorkflow === LEGACY_OPTION) {
-                await pruneAllLegacyPagesHistory();
-                await pruneOwnOlderRuns();
-                console.log("Workflow-history cleanup completed.");
-                return;
-              }
-
-              workflowIdOrFile = manualWorkflow;
-              label = manualWorkflow;
-            }
-
-            if (!workflowIdOrFile) {
-              throw new Error("Could not determine the source workflow.");
-            }
-
-            console.log(`Repository: ${repository}`);
-            console.log(`Workflow: ${workflowIdOrFile}`);
-            console.log(`Branch: ${branch}`);
-
-            // Prune the workflow that just completed successfully.
-            await pruneOlderRuns(workflowIdOrFile, branch, label);
-
-            // When Pages completes successfully, it is safe to prune old
-            // repository-build history too. This replaces the old premature
-            // prune dispatch from build-repo.yml.
-            if (
-              eventName === "workflow_run" &&
-              workflowIdOrFile !== "build-repo.yml"
-            ) {
-              await pruneOlderRuns(
-                "build-repo.yml",
-                targetBranch,
-                "build-repo.yml after successful workflow completion"
-              );
-            }
-
-            await pruneOwnOlderRuns();
-
-            console.log("Workflow-history cleanup completed.");
+            console.log("Pipeline-history cleanup completed.");
           }
 
           main().catch(error => {
