@@ -1,21 +1,11 @@
 name: Publish GitHub Pages
 
 on:
-  # Keep direct website edits deployable. Repository-generated Now/ updates
-  # are deployed explicitly by build-repo.yml after its commit completes.
-  push:
-    branches:
-      - OnTheSide
-    paths:
-      - 'index.html'
-      - 'Now/**'
-      - 'tools/validate_repo_files.py'
-      - '.github/workflows/pages.yml'
-
-  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
+  pages: read
 
 concurrency:
   group: pages-deployment
@@ -55,18 +45,14 @@ jobs:
           rm -rf _site
           mkdir -p _site
 
-          # Copy the homepage and complete Now repository.
           cp index.html _site/index.html
           cp -a Now _site/Now
 
-          # Background audio location.
           AUDIO_DIR="Now/io.page.background.track"
           AUDIO_MANIFEST="$AUDIO_DIR/current.json"
 
-          # Confirm the audio manifest exists.
           test -s "$AUDIO_MANIFEST"
 
-          # Read the selected filename from current.json.
           AUDIO_FILE="$(python3 -c '
           import json
           import re
@@ -94,14 +80,9 @@ jobs:
 
           echo "Selected background audio: $AUDIO_FILE"
 
-          # Confirm the selected audio exists in the source repository.
           test -s "$AUDIO_DIR/$AUDIO_FILE"
-
-          # Confirm the manifest and selected audio were copied to Pages staging.
           test -s "_site/$AUDIO_DIR/current.json"
           test -s "_site/$AUDIO_DIR/$AUDIO_FILE"
-
-          # Confirm normal website files exist.
           test -s _site/index.html
           test -s _site/Now/addons.xml
 
