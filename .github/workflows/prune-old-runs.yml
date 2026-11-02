@@ -58,17 +58,16 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Prune workflow history older than the current run date
+      - name: Prune workflow history older than the current UTC date
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
-          WORKFLOW_REF: ${{ inputs.pipeline_run && 'pipeline.yml' || (github.event_name == 'workflow_run' && github.event.workflow_run.workflow_id || inputs.workflow_file) }}
+          WORKFLOW_REF: ${{ inputs.pipeline_run && 'pipeline.yml' || (github.event_name == 'workflow_run' && github.event.workflow_run.workflow_id || inputs.workflow_file || 'pipeline.yml') }}
           PIPELINE_RUN: ${{ inputs.pipeline_run }}
           TARGET_BRANCH: OnTheSide
           CURRENT_RUN_ID: ${{ github.run_id }}
-          RUN_STARTED_AT: ${{ github.run_started_at }}
         run: |
           set -euo pipefail
 
@@ -80,7 +79,6 @@ jobs:
           const pipelineRun = process.env.PIPELINE_RUN === "true";
           const branch = process.env.TARGET_BRANCH;
           const currentRunId = process.env.CURRENT_RUN_ID;
-          const runStartedAt = process.env.RUN_STARTED_AT;
 
           const LEGACY_PAGES_ID = 397459787;
           const LEGACY_PAGES_PATH = "dynamic/pages/pages-build-deployment";
@@ -94,21 +92,24 @@ jobs:
             !token ||
             !workflowRef ||
             !branch ||
-            !currentRunId ||
-            !runStartedAt
+            !currentRunId
           ) {
-            throw new Error("Missing required repository, workflow, or run context.");
+            throw new Error(
+              "Missing required repository, workflow, branch, token, or run ID."
+            );
           }
 
-          const cutoffDate = new Date(runStartedAt)
-            .toISOString()
-            .slice(0, 10);
+          // Use the actual UTC date when this cleanup runs.
+          // Keep every run created today or later.
+          const cutoffDate = new Date().toISOString().slice(0, 10);
 
           console.log(`Repository: ${repository}`);
           console.log(`Branch: ${branch}`);
-          console.log(`Current run: ${currentRunId}`);
+          console.log(`Current cleanup run: ${currentRunId}`);
           console.log(`Retention cutoff (UTC): ${cutoffDate}`);
-          console.log("Completed runs before this UTC date are eligible for deletion.");
+          console.log(
+            "Completed runs created before this UTC date are eligible for deletion."
+          );
 
           const headers = {
             Accept: "application/vnd.github+json",
@@ -143,8 +144,7 @@ jobs:
           async function getWorkflowRuns(workflowIdOrFile, branchFilter) {
             const runs = [];
 
-            // GitHub exposes up to 100 results per page and up to
-            // 1,000 matching workflow runs through this endpoint.
+            // Fetch up to 1,000 runs, 100 per page.
             for (let page = 1; page <= 10; page++) {
               const parameters = new URLSearchParams({
                 per_page: "100",
@@ -210,14 +210,18 @@ jobs:
               `${label}: deleted ${deleted}; failed ${failed}.`
             );
 
-            if (failed) {
+            if (failed > 0) {
               throw new Error(
                 `${failed} ${label} run(s) could not be deleted.`
               );
             }
           }
 
-          async function pruneBeforeDate(workflowIdOrFile, branchFilter, label) {
+          async function pruneBeforeDate(
+            workflowIdOrFile,
+            branchFilter,
+            label
+          ) {
             const runs = await getWorkflowRuns(
               workflowIdOrFile,
               branchFilter
@@ -273,8 +277,7 @@ jobs:
               null
             );
 
-            // This destructive all-history option is only available
-            // through an explicit manual DELETE confirmation.
+            // Only reached through manual DELETE confirmation.
             await deleteCompletedRuns(
               runs,
               () => true,
@@ -299,7 +302,7 @@ jobs:
             }
 
             throw new Error(
-              `Could not find ${SELF_WORKFLOW_PATH}.`
+              `Could not find this cleanup workflow at ${SELF_WORKFLOW_PATH}.`
             );
           }
 
@@ -322,20 +325,18 @@ jobs:
           async function main() {
             if (pipelineRun) {
               console.log(
-                "Pipeline cleanup: pruning current and legacy pipeline histories."
+                "Pipeline cleanup: pruning current and legacy workflow histories."
               );
 
-              // The current parent pipeline is still running while this
-              // reusable cleanup stage executes. Do not wait for a successful
-              // pipeline run to establish the cutoff date.
+              // The parent pipeline is still running while this reusable
+              // workflow executes. Do not wait for a successful pipeline run.
               await pruneBeforeDate(
                 "pipeline.yml",
                 branch,
                 "pipeline.yml"
               );
 
-              // These are the old standalone workflow histories from before
-              // the workflows were converted into reusable stages.
+              // Remove completed runs from the previous standalone workflows.
               await pruneBeforeDate(
                 "pages.yml",
                 branch,
@@ -373,6 +374,7 @@ jobs:
               );
             }
 
+            // Keep the current cleanup run, but prune its older history.
             await pruneOwnOlderRuns();
 
             console.log(
