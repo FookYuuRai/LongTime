@@ -11,7 +11,6 @@ on:
       - 'tools/make_repo.py'
       - 'tools/validate_repo_files.py'
       - 'tools/_source/**'
-      - '.github/workflows/**'
   schedule:
     - cron: '23 */6 * * *'
   workflow_dispatch:
