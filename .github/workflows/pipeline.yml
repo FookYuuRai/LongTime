@@ -52,6 +52,7 @@ jobs:
     needs: build-repo
     uses: ./.github/workflows/pages.yml
     permissions:
+      actions: read
       contents: read
       pages: write
       id-token: write
@@ -60,5 +61,7 @@ jobs:
     name: "4. Prune old workflow runs"
     needs: publish-pages
     uses: ./.github/workflows/prune-old-runs.yml
+    with:
+      pipeline_run: true
     permissions:
       actions: write
