@@ -1,23 +1,10 @@
 name: build repo
 
 on:
-  push:
-    branches:
-      - OnTheSide
-    paths:
-      - 'Later/**'
-      # ZIP uploads are sequenced through update-nightshift-ambience-pack.yml.
-      # That workflow dispatches this build after its pack check completes.
-      - '!Later/*.zip'
-      - '!Later/**/*.zip'
-      - 'tools/make_repo.py'
-      - 'tools/validate_repo_files.py'
-      - 'tools/_source/**'
-  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: write
-  actions: write
 
 concurrency:
   group: build-repo-${{ github.ref }}
@@ -64,13 +51,3 @@ jobs:
             git commit -m "rebuild repo"
             git push origin HEAD:OnTheSide
           fi
-
-      # GITHUB_TOKEN pushes do not start another workflow from a push event.
-      # Explicitly deploy Pages after the repository build completes.
-      - name: Dispatch GitHub Pages deployment
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run pages.yml --ref OnTheSide
-
-      # Do not dispatch pruning here: dispatching Pages only queues it.
-      # prune-old-runs.yml now waits for the Pages workflow's completed event.
