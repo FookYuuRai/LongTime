@@ -9,8 +9,6 @@ on:
         type: boolean
         default: false
 
-  # The action-pin updater still runs independently, so retain its automatic
-  # cleanup hook. Repository build and Pages are called as reusable stages.
   workflow_run:
     workflows:
       - Update pinned GitHub Actions
@@ -26,6 +24,7 @@ on:
         required: true
         type: choice
         options:
+          - pipeline.yml
           - build-repo.yml
           - pages.yml
           - update-action-pins.yml
@@ -56,295 +55,333 @@ jobs:
       (github.event_name == 'workflow_dispatch' &&
        inputs.confirm_cleanup == 'DELETE')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
-      - name: Prune selected workflow and older cleanup runs
+      - name: Prune workflow history older than the current run date
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
           WORKFLOW_REF: ${{ inputs.pipeline_run && 'pipeline.yml' || (github.event_name == 'workflow_run' && github.event.workflow_run.workflow_id || inputs.workflow_file) }}
           PIPELINE_RUN: ${{ inputs.pipeline_run }}
           TARGET_BRANCH: OnTheSide
           CURRENT_RUN_ID: ${{ github.run_id }}
+          RUN_STARTED_AT: ${{ github.run_started_at }}
         run: |
           set -euo pipefail
 
           node <<'NODE'
           const repository = process.env.REPOSITORY;
-          const workflowRef = process.env.WORKFLOW_REF;
-          const branch = process.env.TARGET_BRANCH;
           const token = process.env.GH_TOKEN;
-          const currentRunId = process.env.CURRENT_RUN_ID;
+          const eventName = process.env.EVENT_NAME;
+          const workflowRef = process.env.WORKFLOW_REF;
           const pipelineRun = process.env.PIPELINE_RUN === "true";
-          const PIPELINE_WORKFLOW_FILE = "pipeline.yml";
+          const branch = process.env.TARGET_BRANCH;
+          const currentRunId = process.env.CURRENT_RUN_ID;
+          const runStartedAt = process.env.RUN_STARTED_AT;
 
           const LEGACY_PAGES_ID = 397459787;
           const LEGACY_PAGES_PATH = "dynamic/pages/pages-build-deployment";
-          const LEGACY_OPTION = "pages-build-deployment (delete all generated history)";
-          const SELF_WORKFLOW_PATH = ".github/workflows/prune-old-runs.yml";
+          const LEGACY_OPTION =
+            "pages-build-deployment (delete all generated history)";
+          const SELF_WORKFLOW_PATH =
+            ".github/workflows/prune-old-runs.yml";
 
-          if (!repository || !workflowRef || !branch || !token || !currentRunId) {
-              throw new Error("Missing repository, workflow, branch, token, or run ID.");
+          if (
+            !repository ||
+            !token ||
+            !workflowRef ||
+            !branch ||
+            !currentRunId ||
+            !runStartedAt
+          ) {
+            throw new Error("Missing required repository, workflow, or run context.");
           }
 
+          const cutoffDate = new Date(runStartedAt)
+            .toISOString()
+            .slice(0, 10);
+
+          console.log(`Repository: ${repository}`);
+          console.log(`Branch: ${branch}`);
+          console.log(`Current run: ${currentRunId}`);
+          console.log(`Retention cutoff (UTC): ${cutoffDate}`);
+          console.log("Completed runs before this UTC date are eligible for deletion.");
+
           const headers = {
-              "Accept": "application/vnd.github+json",
-              "Authorization": `Bearer ${token}`,
-              "X-GitHub-Api-Version": "2022-11-28"
+            Accept: "application/vnd.github+json",
+            Authorization: `Bearer ${token}`,
+            "X-GitHub-Api-Version": "2022-11-28"
           };
 
           async function githubApi(path, options = {}) {
-              const response = await fetch(`https://api.github.com${path}`, {
-                  ...options,
-                  headers: {
-                      ...headers,
-                      ...(options.headers || {})
-                  }
-              });
-
-              if (!response.ok) {
-                  const detail = await response.text();
-                  throw new Error(
-                      `GitHub API ${options.method || "GET"} ${path} failed: ` +
-                      `${response.status} ${response.statusText}\n${detail}`
-                  );
+            const response = await fetch(
+              `https://api.github.com${path}`,
+              {
+                ...options,
+                headers: {
+                  ...headers,
+                  ...(options.headers || {})
+                }
               }
+            );
 
-              if (response.status === 204) return null;
-              return response.json();
+            if (!response.ok) {
+              throw new Error(
+                `GitHub API ${options.method || "GET"} ${path} failed: ` +
+                `${response.status} ${response.statusText}\n` +
+                await response.text()
+              );
+            }
+
+            if (response.status === 204) return null;
+            return response.json();
           }
 
           async function getWorkflowRuns(workflowIdOrFile, branchFilter) {
-              const runs = [];
+            const runs = [];
 
-              // The Actions API returns up to 100 results per page.
-              // GitHub limits this endpoint to the newest 1,000 matching runs.
-              for (let page = 1; page <= 10; page++) {
-                  const parameters = new URLSearchParams({
-                      per_page: "100",
-                      page: String(page)
-                  });
+            // GitHub exposes up to 100 results per page and up to
+            // 1,000 matching workflow runs through this endpoint.
+            for (let page = 1; page <= 10; page++) {
+              const parameters = new URLSearchParams({
+                per_page: "100",
+                page: String(page)
+              });
 
-                  if (branchFilter) {
-                      parameters.set("branch", branchFilter);
-                  }
-
-                  const path =
-                      `/repos/${repository}/actions/workflows/` +
-                      `${encodeURIComponent(workflowIdOrFile)}/runs?${parameters}`;
-
-                  const result = await githubApi(path);
-                  const pageRuns = result.workflow_runs || [];
-                  runs.push(...pageRuns);
-
-                  if (pageRuns.length < 100) break;
+              if (branchFilter) {
+                parameters.set("branch", branchFilter);
               }
 
-              return runs;
+              const path =
+                `/repos/${repository}/actions/workflows/` +
+                `${encodeURIComponent(workflowIdOrFile)}/runs?${parameters}`;
+
+              const result = await githubApi(path);
+              const pageRuns = result.workflow_runs || [];
+
+              runs.push(...pageRuns);
+
+              if (pageRuns.length < 100) break;
+            }
+
+            return runs;
           }
 
           async function deleteCompletedRuns(runs, shouldDelete, label) {
-              const selected = runs.filter(run =>
-                  run.status === "completed" && shouldDelete(run)
+            const selected = runs.filter(run =>
+              run.status === "completed" && shouldDelete(run)
+            );
+
+            console.log(
+              `${label}: inspected ${runs.length} run(s); ` +
+              `${selected.length} completed run(s) selected.`
+            );
+
+            let deleted = 0;
+            let failed = 0;
+
+            for (const run of selected) {
+              const path =
+                `/repos/${repository}/actions/runs/${run.id}`;
+
+              try {
+                await githubApi(path, { method: "DELETE" });
+                deleted++;
+
+                console.log(
+                  `Deleted ${label} run ${run.id}: ${run.created_at} ` +
+                  `(${run.conclusion || run.status})`
+                );
+              } catch (error) {
+                failed++;
+
+                console.error(
+                  `Could not delete ${label} run ${run.id}: ${error.message}`
+                );
+              }
+
+              await new Promise(resolve => setTimeout(resolve, 150));
+            }
+
+            console.log(
+              `${label}: deleted ${deleted}; failed ${failed}.`
+            );
+
+            if (failed) {
+              throw new Error(
+                `${failed} ${label} run(s) could not be deleted.`
               );
-
-              console.log(`${label}: ${selected.length} completed run(s) selected.`);
-
-              let deleted = 0;
-              let failed = 0;
-
-              for (const run of selected) {
-                  const path = `/repos/${repository}/actions/runs/${run.id}`;
-
-                  try {
-                      await githubApi(path, { method: "DELETE" });
-                      deleted++;
-                      console.log(
-                          `Deleted ${label} run ${run.id}: ${run.created_at} ` +
-                          `(${run.conclusion || run.status})`
-                      );
-                  } catch (error) {
-                      failed++;
-                      console.error(
-                          `Could not delete ${label} run ${run.id}: ${error.message}`
-                      );
-                  }
-
-                  await new Promise(resolve => setTimeout(resolve, 150));
-              }
-
-              console.log(`${label}: deleted ${deleted}; failed ${failed}.`);
-
-              if (failed) {
-                  throw new Error(`${failed} ${label} run(s) could not be deleted.`);
-              }
+            }
           }
 
-          async function pruneByLatestSuccessfulDate(workflowIdOrFile, label) {
-              const runs = await getWorkflowRuns(workflowIdOrFile, branch);
+          async function pruneBeforeDate(workflowIdOrFile, branchFilter, label) {
+            const runs = await getWorkflowRuns(
+              workflowIdOrFile,
+              branchFilter
+            );
 
-              const successfulRuns = runs
-                  .filter(run =>
-                      run.status === "completed" &&
-                      run.conclusion === "success"
-                  )
-                  .sort((a, b) =>
-                      Date.parse(b.created_at) - Date.parse(a.created_at)
-                  );
+            await deleteCompletedRuns(
+              runs,
+              run => run.created_at.slice(0, 10) < cutoffDate,
+              label
+            );
+          }
 
-              if (!successfulRuns.length) {
-                  console.log(
-                      `${label}: no successful run found on ${branch}; nothing deleted.`
-                  );
-                  return;
-              }
+          async function verifyLegacyPagesWorkflow() {
+            const workflow = await githubApi(
+              `/repos/${repository}/actions/workflows/${LEGACY_PAGES_ID}`
+            );
 
-              const latestSuccessfulRun = successfulRuns[0];
-              const cutoffDate = latestSuccessfulRun.created_at.slice(0, 10);
-
-              console.log(`${label}: latest successful run ${latestSuccessfulRun.id}.`);
-              console.log(`${label}: latest successful UTC date ${cutoffDate}.`);
-              console.log(`${label}: inspected ${runs.length} run(s).`);
-
-              // Preserve every run on the latest successful date and all newer runs.
-              // This includes newer failures so they remain available for diagnosis.
-              await deleteCompletedRuns(
-                  runs,
-                  run => run.created_at.slice(0, 10) < cutoffDate,
-                  label
+            if (
+              workflow.id !== LEGACY_PAGES_ID ||
+              workflow.path !== LEGACY_PAGES_PATH
+            ) {
+              throw new Error(
+                "Safety check failed: generated Pages workflow ID/path " +
+                "did not match. Nothing was deleted from that workflow."
               );
+            }
+
+            console.log(
+              `Verified generated Pages workflow: ${workflow.path}`
+            );
+          }
+
+          async function pruneLegacyPagesBeforeDate() {
+            await verifyLegacyPagesWorkflow();
+
+            const runs = await getWorkflowRuns(
+              LEGACY_PAGES_ID,
+              null
+            );
+
+            await deleteCompletedRuns(
+              runs,
+              run => run.created_at.slice(0, 10) < cutoffDate,
+              "generated pages-build-deployment"
+            );
           }
 
           async function pruneAllLegacyPagesHistory() {
-              // Verify the workflow ID and generated path before touching its runs.
-              const workflow = await githubApi(
-                  `/repos/${repository}/actions/workflows/${LEGACY_PAGES_ID}`
-              );
+            await verifyLegacyPagesWorkflow();
 
-              if (
-                  workflow.id !== LEGACY_PAGES_ID ||
-                  workflow.path !== LEGACY_PAGES_PATH
-              ) {
-                  throw new Error(
-                      "Safety check failed: the generated Pages workflow ID/path " +
-                      "did not match the expected values. Nothing was deleted."
-                  );
-              }
+            const runs = await getWorkflowRuns(
+              LEGACY_PAGES_ID,
+              null
+            );
 
-              console.log(
-                  `Verified generated workflow ${workflow.name}: ${workflow.path}`
-              );
-
-              // This is an explicit manual selection. Delete all completed runs
-              // of this generated workflow, regardless of conclusion or date.
-              const runs = await getWorkflowRuns(LEGACY_PAGES_ID, null);
-
-              await deleteCompletedRuns(
-                  runs,
-                  () => true,
-                  "generated pages-build-deployment"
-              );
+            // This destructive all-history option is only available
+            // through an explicit manual DELETE confirmation.
+            await deleteCompletedRuns(
+              runs,
+              () => true,
+              "generated pages-build-deployment"
+            );
           }
 
           async function findOwnWorkflowId() {
-              for (let page = 1; page <= 10; page++) {
-                  const result = await githubApi(
-                      `/repos/${repository}/actions/workflows?per_page=100&page=${page}`
-                  );
-
-                  const workflows = result.workflows || [];
-                  const ownWorkflow = workflows.find(workflow =>
-                      workflow.path === SELF_WORKFLOW_PATH
-                  );
-
-                  if (ownWorkflow) return ownWorkflow.id;
-                  if (workflows.length < 100) break;
-              }
-
-              throw new Error(
-                  `Could not find this cleanup workflow at ${SELF_WORKFLOW_PATH}.`
+            for (let page = 1; page <= 10; page++) {
+              const result = await githubApi(
+                `/repos/${repository}/actions/workflows?per_page=100&page=${page}`
               );
+
+              const workflows = result.workflows || [];
+
+              const ownWorkflow = workflows.find(workflow =>
+                workflow.path === SELF_WORKFLOW_PATH
+              );
+
+              if (ownWorkflow) return ownWorkflow.id;
+              if (workflows.length < 100) break;
+            }
+
+            throw new Error(
+              `Could not find ${SELF_WORKFLOW_PATH}.`
+            );
           }
 
           async function pruneOwnOlderRuns() {
-              const ownWorkflowId = await findOwnWorkflowId();
-              const ownRuns = await getWorkflowRuns(ownWorkflowId, branch);
+            const ownWorkflowId = await findOwnWorkflowId();
+            const ownRuns = await getWorkflowRuns(
+              ownWorkflowId,
+              branch
+            );
 
-              // The current run is still in progress and cannot yet be treated
-              // as successful. Use the latest *completed successful* cleanup run
-              // as the cutoff. A successful run is therefore retained until a
-              // later invocation confirms it completed successfully.
-              const previousSuccessfulRuns = ownRuns
-                  .filter(run =>
-                      String(run.id) !== String(currentRunId) &&
-                      run.status === "completed" &&
-                      run.conclusion === "success"
-                  )
-                  .sort((a, b) =>
-                      Date.parse(b.created_at) - Date.parse(a.created_at)
-                  );
-
-              if (!previousSuccessfulRuns.length) {
-                  console.log(
-                      "Cleanup workflow history: no previous successful run; " +
-                      "keeping all cleanup history for now."
-                  );
-                  return;
-              }
-
-              const latestSuccessfulRun = previousSuccessfulRuns[0];
-              const cutoffDate = latestSuccessfulRun.created_at.slice(0, 10);
-
-              console.log(
-                  `Cleanup workflow latest successful run: ${latestSuccessfulRun.id}`
-              );
-              console.log(
-                  `Cleanup workflow retention date (UTC): ${cutoffDate}`
-              );
-
-              await deleteCompletedRuns(
-                  ownRuns,
-                  run =>
-                      String(run.id) !== String(currentRunId) &&
-                      run.created_at.slice(0, 10) < cutoffDate,
-                  "prune-old-runs.yml"
-              );
+            await deleteCompletedRuns(
+              ownRuns,
+              run =>
+                String(run.id) !== String(currentRunId) &&
+                run.created_at.slice(0, 10) < cutoffDate,
+              "prune-old-runs.yml"
+            );
           }
 
           async function main() {
-              console.log(`Repository: ${repository}`);
-              console.log(`Branch: ${branch}`);
+            if (pipelineRun) {
+              console.log(
+                "Pipeline cleanup: pruning current and legacy pipeline histories."
+              );
 
-              if (pipelineRun) {
-                  // This job is the final stage of the upload-to-publish
-                  // pipeline. Keep the most recent successful UTC date and
-                  // all newer runs (including failures) for troubleshooting.
-                  await pruneByLatestSuccessfulDate(
-                      PIPELINE_WORKFLOW_FILE,
-                      "pipeline.yml"
-                  );
-              } else if (workflowRef === LEGACY_OPTION) {
-                  await pruneAllLegacyPagesHistory();
-              } else {
-                  await pruneByLatestSuccessfulDate(
-                      workflowRef,
-                      workflowRef
-                  );
-              }
+              // The current parent pipeline is still running while this
+              // reusable cleanup stage executes. Do not wait for a successful
+              // pipeline run to establish the cutoff date.
+              await pruneBeforeDate(
+                "pipeline.yml",
+                branch,
+                "pipeline.yml"
+              );
 
-              // Also prune this cleanup workflow's own older run history.
-              // It is deliberately NOT listed under workflow_run above, avoiding
-              // a self-triggering chain. Its older runs are cleaned on the next
-              // successful invocation from one of the three real workflows.
-              await pruneOwnOlderRuns();
+              // These are the old standalone workflow histories from before
+              // the workflows were converted into reusable stages.
+              await pruneBeforeDate(
+                "pages.yml",
+                branch,
+                "legacy pages.yml"
+              );
 
-              console.log("Workflow-history cleanup completed.");
+              await pruneBeforeDate(
+                "build-repo.yml",
+                branch,
+                "legacy build-repo.yml"
+              );
+
+              // Also clean old GitHub-generated Pages deployment runs.
+              await pruneLegacyPagesBeforeDate();
+
+            } else if (eventName === "workflow_run") {
+              console.log(
+                `Automatic cleanup after successful workflow ${workflowRef}.`
+              );
+
+              await pruneBeforeDate(
+                workflowRef,
+                branch,
+                `workflow ${workflowRef}`
+              );
+
+            } else if (workflowRef === LEGACY_OPTION) {
+              await pruneAllLegacyPagesHistory();
+
+            } else {
+              await pruneBeforeDate(
+                workflowRef,
+                branch,
+                workflowRef
+              );
+            }
+
+            await pruneOwnOlderRuns();
+
+            console.log(
+              `Workflow-history cleanup completed for cutoff ${cutoffDate}.`
+            );
           }
 
           main().catch(error => {
-              console.error(error);
-              process.exitCode = 1;
+            console.error(error);
+            process.exitCode = 1;
           });
           NODE
