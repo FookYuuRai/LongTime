@@ -1,0 +1,65 @@
+name: LongTime upload-to-publish pipeline
+
+on:
+  push:
+    branches:
+      - OnTheSide
+    paths:
+      - 'Later/**'
+      - 'Now/**'
+      - 'index.html'
+      - 'tools/make_repo.py'
+      - 'tools/validate_repo_files.py'
+      - 'tools/_source/**'
+      - '.github/workflows/**'
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      pack_url:
+        description: "HTTPS URL for the ambience audio pack (leave blank for the default)"
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  actions: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: longtime-upload-publish-pipeline
+  cancel-in-progress: false
+
+jobs:
+  update-ambience:
+    name: "1. Update ambience audio pack"
+    uses: ./.github/workflows/update-nightshift-ambience-pack.yml
+    with:
+      pack_url: ${{ inputs.pack_url || 'https://github.com/FookYuuRai/LongTime/releases/download/ambience-audio-v1/ambience-audio-opus96.zip' }}
+    permissions:
+      contents: write
+
+  build-repo:
+    name: "2. Build repository"
+    needs: update-ambience
+    uses: ./.github/workflows/build-repo.yml
+    permissions:
+      contents: write
+
+  publish-pages:
+    name: "3. Publish GitHub Pages"
+    needs: build-repo
+    uses: ./.github/workflows/pages.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+  prune-history:
+    name: "4. Prune old workflow runs"
+    needs: publish-pages
+    uses: ./.github/workflows/prune-old-runs.yml
+    permissions:
+      actions: write
