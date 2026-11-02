@@ -1,4 +1,4 @@
-name: Prune old successful workflow history
+name: Prune old workflow history
 
 on:
   workflow_call:
@@ -80,8 +80,8 @@ jobs:
           const branch = process.env.TARGET_BRANCH;
           const currentRunId = process.env.CURRENT_RUN_ID;
 
-          const LEGACY_PAGES_ID = 397459787;
-          const LEGACY_PAGES_PATH = "dynamic/pages/pages-build-deployment";
+          const LEGACY_PAGES_PATH =
+            "dynamic/pages/pages-build-deployment";
           const LEGACY_OPTION =
             "pages-build-deployment (delete all generated history)";
           const SELF_WORKFLOW_PATH =
@@ -99,8 +99,7 @@ jobs:
             );
           }
 
-          // Use the actual UTC date when this cleanup runs.
-          // Keep every run created today or later.
+          // Use today's actual UTC date. Runs created today are retained.
           const cutoffDate = new Date().toISOString().slice(0, 10);
 
           console.log(`Repository: ${repository}`);
@@ -141,10 +140,27 @@ jobs:
             return response.json();
           }
 
+          async function listWorkflows() {
+            const workflows = [];
+
+            for (let page = 1; page <= 10; page++) {
+              const result = await githubApi(
+                `/repos/${repository}/actions/workflows?per_page=100&page=${page}`
+              );
+
+              const items = result.workflows || [];
+              workflows.push(...items);
+
+              if (items.length < 100) break;
+            }
+
+            return workflows;
+          }
+
           async function getWorkflowRuns(workflowIdOrFile, branchFilter) {
             const runs = [];
 
-            // Fetch up to 1,000 runs, 100 per page.
+            // Fetch up to 1,000 runs per workflow.
             for (let page = 1; page <= 10; page++) {
               const parameters = new URLSearchParams({
                 per_page: "100",
@@ -184,11 +200,12 @@ jobs:
             let failed = 0;
 
             for (const run of selected) {
-              const path =
-                `/repos/${repository}/actions/runs/${run.id}`;
-
               try {
-                await githubApi(path, { method: "DELETE" });
+                await githubApi(
+                  `/repos/${repository}/actions/runs/${run.id}`,
+                  { method: "DELETE" }
+                );
+
                 deleted++;
 
                 console.log(
@@ -234,33 +251,54 @@ jobs:
             );
           }
 
-          async function verifyLegacyPagesWorkflow() {
-            const workflow = await githubApi(
-              `/repos/${repository}/actions/workflows/${LEGACY_PAGES_ID}`
+          async function findGeneratedPagesWorkflow() {
+            const workflows = await listWorkflows();
+
+            // Use only an exact path match. Do not guess based on a name.
+            const matches = workflows.filter(workflow =>
+              workflow.path === LEGACY_PAGES_PATH
             );
 
-            if (
-              workflow.id !== LEGACY_PAGES_ID ||
-              workflow.path !== LEGACY_PAGES_PATH
-            ) {
-              throw new Error(
-                "Safety check failed: generated Pages workflow ID/path " +
-                "did not match. Nothing was deleted from that workflow."
+            if (matches.length !== 1) {
+              console.log(
+                `Generated Pages workflow path matched ${matches.length} ` +
+                `workflow(s); skipping its history safely.`
               );
+
+              console.log(
+                "Available workflow entries matching 'pages' or 'deploy':"
+              );
+
+              for (const workflow of workflows.filter(workflow =>
+                /pages|deploy/i.test(
+                  `${workflow.name || ""} ${workflow.path || ""}`
+                )
+              )) {
+                console.log(
+                  `- name=${workflow.name}; id=${workflow.id}; ` +
+                  `path=${workflow.path}`
+                );
+              }
+
+              return null;
             }
 
+            const workflow = matches[0];
+
             console.log(
-              `Verified generated Pages workflow: ${workflow.path}`
+              `Verified generated Pages workflow: ${workflow.path}; ` +
+              `ID ${workflow.id}`
             );
+
+            return workflow.id;
           }
 
           async function pruneLegacyPagesBeforeDate() {
-            await verifyLegacyPagesWorkflow();
+            const workflowId = await findGeneratedPagesWorkflow();
 
-            const runs = await getWorkflowRuns(
-              LEGACY_PAGES_ID,
-              null
-            );
+            if (workflowId === null) return;
+
+            const runs = await getWorkflowRuns(workflowId, null);
 
             await deleteCompletedRuns(
               runs,
@@ -270,14 +308,18 @@ jobs:
           }
 
           async function pruneAllLegacyPagesHistory() {
-            await verifyLegacyPagesWorkflow();
+            const workflowId = await findGeneratedPagesWorkflow();
 
-            const runs = await getWorkflowRuns(
-              LEGACY_PAGES_ID,
-              null
-            );
+            if (workflowId === null) {
+              throw new Error(
+                "Cannot perform the requested full generated Pages cleanup: " +
+                "the workflow was not uniquely identified. No Pages runs deleted."
+              );
+            }
 
-            // Only reached through manual DELETE confirmation.
+            const runs = await getWorkflowRuns(workflowId, null);
+
+            // This function is reachable only after manual DELETE confirmation.
             await deleteCompletedRuns(
               runs,
               () => true,
@@ -286,24 +328,20 @@ jobs:
           }
 
           async function findOwnWorkflowId() {
-            for (let page = 1; page <= 10; page++) {
-              const result = await githubApi(
-                `/repos/${repository}/actions/workflows?per_page=100&page=${page}`
+            const workflows = await listWorkflows();
+
+            const matches = workflows.filter(workflow =>
+              workflow.path === SELF_WORKFLOW_PATH
+            );
+
+            if (matches.length !== 1) {
+              throw new Error(
+                `Expected one cleanup workflow at ${SELF_WORKFLOW_PATH}; ` +
+                `found ${matches.length}.`
               );
-
-              const workflows = result.workflows || [];
-
-              const ownWorkflow = workflows.find(workflow =>
-                workflow.path === SELF_WORKFLOW_PATH
-              );
-
-              if (ownWorkflow) return ownWorkflow.id;
-              if (workflows.length < 100) break;
             }
 
-            throw new Error(
-              `Could not find this cleanup workflow at ${SELF_WORKFLOW_PATH}.`
-            );
+            return matches[0].id;
           }
 
           async function pruneOwnOlderRuns() {
@@ -328,15 +366,12 @@ jobs:
                 "Pipeline cleanup: pruning current and legacy workflow histories."
               );
 
-              // The parent pipeline is still running while this reusable
-              // workflow executes. Do not wait for a successful pipeline run.
               await pruneBeforeDate(
                 "pipeline.yml",
                 branch,
                 "pipeline.yml"
               );
 
-              // Remove completed runs from the previous standalone workflows.
               await pruneBeforeDate(
                 "pages.yml",
                 branch,
@@ -349,7 +384,6 @@ jobs:
                 "legacy build-repo.yml"
               );
 
-              // Also clean old GitHub-generated Pages deployment runs.
               await pruneLegacyPagesBeforeDate();
 
             } else if (eventName === "workflow_run") {
@@ -374,7 +408,6 @@ jobs:
               );
             }
 
-            // Keep the current cleanup run, but prune its older history.
             await pruneOwnOlderRuns();
 
             console.log(
