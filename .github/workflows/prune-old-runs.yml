@@ -64,7 +64,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
-          WORKFLOW_REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.workflow_id || inputs.workflow_file }}
+          WORKFLOW_REF: ${{ inputs.pipeline_run && 'pipeline.yml' || (github.event_name == 'workflow_run' && github.event.workflow_run.workflow_id || inputs.workflow_file) }}
           PIPELINE_RUN: ${{ inputs.pipeline_run }}
           TARGET_BRANCH: OnTheSide
           CURRENT_RUN_ID: ${{ github.run_id }}
