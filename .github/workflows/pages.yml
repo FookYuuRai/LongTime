@@ -118,9 +118,42 @@ jobs:
 
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry_1.outputs.page_url || steps.deployment_retry_2.outputs.page_url }}
 
     steps:
-      - name: Deploy website
+      - name: Deploy website (attempt 1)
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        continue-on-error: true
+
+      - name: Wait before retry 1
+        if: ${{ steps.deployment.outcome == 'failure' }}
+        run: sleep 15
+
+      - name: Deploy website (attempt 2)
+        id: deployment_retry_1
+        if: ${{ steps.deployment.outcome == 'failure' }}
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        continue-on-error: true
+
+      - name: Wait before retry 2
+        if: ${{ steps.deployment_retry_1.outcome == 'failure' }}
+        run: sleep 45
+
+      - name: Deploy website (attempt 3)
+        id: deployment_retry_2
+        if: ${{ steps.deployment_retry_1.outcome == 'failure' }}
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        continue-on-error: true
+
+      - name: Fail if all deployment attempts failed
+        if: >-
+          ${{
+            !cancelled() &&
+            steps.deployment.outcome == 'failure' &&
+            steps.deployment_retry_1.outcome == 'failure' &&
+            steps.deployment_retry_2.outcome == 'failure'
+          }}
+        run: |
+          echo "::error::GitHub Pages deployment failed after all 3 attempts."
+          exit 1
