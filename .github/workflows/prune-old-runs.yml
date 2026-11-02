@@ -3,7 +3,6 @@ name: Prune old successful workflow history
 on:
   workflow_run:
     workflows:
-      - build repo
       - Publish GitHub Pages
       - Update pinned GitHub Actions
     types:
@@ -13,9 +12,15 @@ on:
 
   workflow_dispatch:
     inputs:
+      source_run_id:
+        description: Build workflow run ID to wait for before pruning
+        required: false
+        type: string
+
       workflow_file:
-        description: Select which workflow history to prune
-        required: true
+        description: Select which workflow history to prune manually
+        required: false
+        default: build-repo.yml
         type: choice
         options:
           - build-repo.yml
@@ -25,7 +30,7 @@ on:
 
       confirm_cleanup:
         description: Type DELETE to confirm removing workflow history
-        required: true
+        required: false
         type: choice
         default: NO
         options:
@@ -45,9 +50,12 @@ jobs:
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'workflow_dispatch' &&
+       inputs.source_run_id != '') ||
+      (github.event_name == 'workflow_dispatch' &&
        inputs.confirm_cleanup == 'DELETE')
+
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 35
 
     steps:
       - name: Prune selected workflow and older cleanup runs
@@ -55,26 +63,32 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
-          WORKFLOW_REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.workflow_id || inputs.workflow_file }}
+          WORKFLOW_REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.workflow_id || inputs.workflow_file || '' }}
           TARGET_BRANCH: OnTheSide
           CURRENT_RUN_ID: ${{ github.run_id }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id || '' }}
         run: |
           set -euo pipefail
 
           node <<'NODE'
           const repository = process.env.REPOSITORY;
-          const workflowRef = process.env.WORKFLOW_REF;
+          let workflowRef = process.env.WORKFLOW_REF;
           const branch = process.env.TARGET_BRANCH;
           const token = process.env.GH_TOKEN;
           const currentRunId = process.env.CURRENT_RUN_ID;
+          const sourceRunId = process.env.SOURCE_RUN_ID || "";
 
           const LEGACY_PAGES_ID = 397459787;
           const LEGACY_PAGES_PATH = "dynamic/pages/pages-build-deployment";
           const LEGACY_OPTION = "pages-build-deployment (delete all generated history)";
           const SELF_WORKFLOW_PATH = ".github/workflows/prune-old-runs.yml";
 
-          if (!repository || !workflowRef || !branch || !token || !currentRunId) {
-              throw new Error("Missing repository, workflow, branch, token, or run ID.");
+          if (!repository || !branch || !token || !currentRunId) {
+              throw new Error("Missing repository, branch, token, or current run ID.");
+          }
+
+          if (!sourceRunId && !workflowRef) {
+              throw new Error("Missing source run ID or manual workflow selection.");
           }
 
           const headers = {
@@ -102,6 +116,62 @@ jobs:
 
               if (response.status === 204) return null;
               return response.json();
+          }
+
+          // Wait for the exact build run dispatched by build-repo.yml.
+          // This avoids deleting build history while the build is still running.
+          async function waitForSourceBuild() {
+              if (!/^\d+$/.test(sourceRunId)) {
+                  throw new Error(`Invalid source_run_id: ${sourceRunId}`);
+              }
+
+              const buildWorkflow = await githubApi(
+                  `/repos/${repository}/actions/workflows/build-repo.yml`
+              );
+
+              if (
+                  buildWorkflow.path !==
+                  ".github/workflows/build-repo.yml"
+              ) {
+                  throw new Error(
+                      "Safety check failed: build-repo.yml workflow path mismatch."
+                  );
+              }
+
+              const deadline = Date.now() + 30 * 60 * 1000;
+
+              while (Date.now() < deadline) {
+                  const sourceRun = await githubApi(
+                      `/repos/${repository}/actions/runs/${sourceRunId}`
+                  );
+
+                  if (sourceRun.workflow_id !== buildWorkflow.id) {
+                      throw new Error(
+                          "Safety check failed: supplied run is not build-repo.yml."
+                      );
+                  }
+
+                  if (sourceRun.head_branch !== branch) {
+                      throw new Error(
+                          `Safety check failed: source run branch is ` +
+                          `${sourceRun.head_branch}, expected ${branch}.`
+                      );
+                  }
+
+                  console.log(
+                      `Waiting for build run ${sourceRun.id}: ${sourceRun.status}`
+                  );
+
+                  if (sourceRun.status === "completed") {
+                      return sourceRun;
+                  }
+
+                  await new Promise(resolve => setTimeout(resolve, 10000));
+              }
+
+              throw new Error(
+                  `Timed out waiting for build run ${sourceRunId} to complete.`
+              );
           }
 
           async function getWorkflowRuns(workflowIdOrFile, branchFilter) {
@@ -149,12 +219,14 @@ jobs:
                   try {
                       await githubApi(path, { method: "DELETE" });
                       deleted++;
+
                       console.log(
                           `Deleted ${label} run ${run.id}: ${run.created_at} ` +
                           `(${run.conclusion || run.status})`
                       );
                   } catch (error) {
                       failed++;
+
                       console.error(
                           `Could not delete ${label} run ${run.id}: ${error.message}`
                       );
@@ -206,7 +278,7 @@ jobs:
           }
 
           async function pruneAllLegacyPagesHistory() {
-              // Verify the workflow ID and generated path before touching its runs.
+              // Verify workflow ID and generated path before touching its runs.
               const workflow = await githubApi(
                   `/repos/${repository}/actions/workflows/${LEGACY_PAGES_ID}`
               );
@@ -225,7 +297,7 @@ jobs:
                   `Verified generated workflow ${workflow.name}: ${workflow.path}`
               );
 
-              // This is an explicit manual selection. Delete all completed runs
+              // Explicit manual selection: delete all completed runs
               // of this generated workflow, regardless of conclusion or date.
               const runs = await getWorkflowRuns(LEGACY_PAGES_ID, null);
 
@@ -260,10 +332,8 @@ jobs:
               const ownWorkflowId = await findOwnWorkflowId();
               const ownRuns = await getWorkflowRuns(ownWorkflowId, branch);
 
-              // The current run is still in progress and cannot yet be treated
-              // as successful. Use the latest *completed successful* cleanup run
-              // as the cutoff. A successful run is therefore retained until a
-              // later invocation confirms it completed successfully.
+              // The current run is in progress and cannot be treated as successful.
+              // Use the latest completed successful cleanup run as the cutoff.
               const previousSuccessfulRuns = ownRuns
                   .filter(run =>
                       String(run.id) !== String(currentRunId) &&
@@ -288,6 +358,7 @@ jobs:
               console.log(
                   `Cleanup workflow latest successful run: ${latestSuccessfulRun.id}`
               );
+
               console.log(
                   `Cleanup workflow retention date (UTC): ${cutoffDate}`
               );
@@ -305,6 +376,26 @@ jobs:
               console.log(`Repository: ${repository}`);
               console.log(`Branch: ${branch}`);
 
+              // Automated build dispatch: wait for the exact source build.
+              if (sourceRunId) {
+                  const sourceRun = await waitForSourceBuild();
+
+                  if (sourceRun.conclusion !== "success") {
+                      console.log(
+                          `Build run ${sourceRun.id} concluded ` +
+                          `${sourceRun.conclusion}; no workflow history will be deleted.`
+                      );
+                      return;
+                  }
+
+                  workflowRef = String(sourceRun.workflow_id);
+
+                  console.log(
+                      `Build run ${sourceRun.id} succeeded; ` +
+                      `pruning build-repo.yml history.`
+                  );
+              }
+
               if (workflowRef === LEGACY_OPTION) {
                   await pruneAllLegacyPagesHistory();
               } else {
@@ -315,9 +406,8 @@ jobs:
               }
 
               // Also prune this cleanup workflow's own older run history.
-              // It is deliberately NOT listed under workflow_run above, avoiding
-              // a self-triggering chain. Its older runs are cleaned on the next
-              // successful invocation from one of the three real workflows.
+              // It is deliberately NOT listed under workflow_run above,
+              // avoiding a self-triggering chain.
               await pruneOwnOlderRuns();
 
               console.log("Workflow-history cleanup completed.");
