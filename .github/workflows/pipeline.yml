@@ -54,6 +54,7 @@ jobs:
     needs: build-repo
     uses: ./.github/workflows/pages.yml
     permissions:
+      actions: read
       contents: read
       pages: write
       id-token: write
