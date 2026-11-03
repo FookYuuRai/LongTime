@@ -32,6 +32,7 @@ The io.page.background.track index page includes a looping audio player.
 
 import argparse
 import hashlib
+import html
 import json
 import os
 import re
@@ -279,6 +280,371 @@ def read_zip(path):
     }
 
     return ident, version, xml_text, files
+
+
+CHANGELOG_BASENAMES = {
+    'changelog.txt',
+    'changelog.md',
+    'changelog.markdown',
+    'changelog',
+}
+
+# Supports common Kodi add-on changelog headings, including:
+#   Version 1.4.17
+#   v1.3.16
+#   2.0.12
+#   [COLOR ...][B]Version 2.4.2.138[/B][/COLOR]
+CHANGELOG_VERSION_RE = re.compile(
+    r'^(?:version\s+|v\s*)?'
+    r'(?P<version>\d+(?:\.\d+)+(?:[-+][0-9A-Za-z][0-9A-Za-z.-]*)?)$',
+    re.IGNORECASE,
+)
+
+KODI_CHANGELOG_TAG_RE = re.compile(
+    r'\[/?(?:COLOR(?:\s+[^\]]*)?|B|I|U|S|STRIKE|CENTER|LEFT|RIGHT)\]',
+    re.IGNORECASE,
+)
+
+
+def _clean_changelog_line(value):
+    """Remove display markup while keeping the readable changelog text."""
+    line = html.unescape(value.replace('\ufeff', '')).strip()
+    line = KODI_CHANGELOG_TAG_RE.sub('', line)
+    line = re.sub(r'^\s{0,3}#{1,6}\s*', '', line)
+    line = re.sub(r'\*\*(.*?)\*\*', r'\1', line)
+    line = re.sub(r'__(.*?)__', r'\1', line)
+    line = re.sub(r'(?<!\w)\*(.*?)\*(?!\w)', r'\1', line)
+    line = re.sub(r'`([^`]*)`', r'\1', line)
+    return line.strip()
+
+
+def _decode_changelog(data):
+    """Decode a changelog without making a malformed archive fatal."""
+    if isinstance(data, str):
+        return data
+
+    try:
+        return data.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        return data.decode('cp1252', errors='replace')
+
+
+def _find_changelog_member(names):
+    """Choose the most conventional changelog path from ZIP member names."""
+    candidates = []
+
+    for name in names:
+        if name.endswith('/'):
+            continue
+
+        basename = name.replace('\\', '/').rsplit('/', 1)[-1].casefold()
+        if basename not in CHANGELOG_BASENAMES:
+            continue
+
+        extension_rank = {
+            'changelog.txt': 0,
+            'changelog.md': 1,
+            'changelog.markdown': 2,
+            'changelog': 3,
+        }[basename]
+
+        normalized = name.replace('\\', '/')
+        depth = normalized.count('/')
+        candidates.append((depth, extension_rank, normalized.casefold(), name))
+
+    if not candidates:
+        return None
+
+    return min(candidates)[-1]
+
+
+def _changelog_text_from_members(files):
+    """Return (member_path, text) for a changelog in a ZIP member dictionary."""
+    member = _find_changelog_member(files.keys())
+    if member is None:
+        return None
+
+    return member, _decode_changelog(files[member])
+
+
+def _changelog_text_from_archive(path):
+    """Read a changelog directly from an already-published add-on ZIP."""
+    if not path or not os.path.isfile(path):
+        return None
+
+    try:
+        with zipfile.ZipFile(path, 'r') as archive:
+            member = _find_changelog_member(archive.namelist())
+            if member is None:
+                return None
+            return member, _decode_changelog(archive.read(member))
+    except (OSError, zipfile.BadZipFile, RuntimeError, KeyError) as error:
+        print(
+            'warning: could not read previous changelog from {0}: {1}'.format(
+                os.path.basename(path),
+                error,
+            )
+        )
+        return None
+
+
+def _parse_changelog(text):
+    """Return (versioned sections, unversioned lines) in source order."""
+    sections = []
+    unversioned = []
+    current_version = None
+    current_lines = []
+
+    for raw_line in text.splitlines():
+        line = _clean_changelog_line(raw_line)
+        heading = CHANGELOG_VERSION_RE.fullmatch(line)
+
+        if heading:
+            if current_version is not None:
+                sections.append((current_version, current_lines))
+            current_version = heading.group('version')
+            current_lines = []
+            continue
+
+        if not line:
+            continue
+
+        if current_version is None:
+            unversioned.append(line)
+            continue
+
+        # Keep the wording but remove the original list marker. The commit
+        # formatter supplies one consistent bullet style for every add-on.
+        line = re.sub(r'^\s*(?:[-*+•]|\d+[.)])\s*', '', line).strip()
+        if line:
+            current_lines.append(line)
+
+    if current_version is not None:
+        sections.append((current_version, current_lines))
+
+    return sections, unversioned
+
+
+def _ordered_new_lines(current_lines, previous_lines):
+    """Return only added/changed lines, preserving their order and duplicates."""
+    previous_counts = {}
+    for line in previous_lines:
+        previous_counts[line] = previous_counts.get(line, 0) + 1
+
+    seen_counts = {}
+    added = []
+    for line in current_lines:
+        seen_counts[line] = seen_counts.get(line, 0) + 1
+        if seen_counts[line] > previous_counts.get(line, 0):
+            added.append(line)
+
+    return added
+
+
+def changelog_delta(previous_text, current_text, current_version):
+    """Return only new or modified release-note entries.
+
+    Versioned changelogs are compared section-by-section. If no previous
+    versioned changelog is available, only the current release's section is
+    used so a first-time import does not dump years of historical notes into
+    one commit. Unversioned changelogs use an ordered line comparison.
+    """
+    if not current_text:
+        return []
+
+    current_sections, current_unversioned = _parse_changelog(current_text)
+    previous_sections, previous_unversioned = _parse_changelog(previous_text or '')
+
+    if current_sections:
+        current_map = {version: lines for version, lines in current_sections}
+        previous_map = {version: lines for version, lines in previous_sections}
+
+        if not previous_map:
+            # No usable baseline: include only the current release section.
+            selected = next(
+                (
+                    (version, lines)
+                    for version, lines in current_sections
+                    if version == current_version
+                ),
+                current_sections[0],
+            )
+            return [(selected[0], list(selected[1]))] if selected[1] else []
+
+        shared_versions = set(current_map).intersection(previous_map)
+        if not shared_versions:
+            # A format change or truncated old changelog may prevent a safe
+            # section-by-section comparison. Fall back to the newest section.
+            selected = next(
+                (
+                    (version, lines)
+                    for version, lines in current_sections
+                    if version == current_version
+                ),
+                current_sections[0],
+            )
+            return [(selected[0], list(selected[1]))] if selected[1] else []
+
+        delta = []
+        for version, lines in current_sections:
+            added = _ordered_new_lines(lines, previous_map.get(version, []))
+            if added:
+                delta.append((version, added))
+        return delta
+
+    if current_unversioned:
+        added = _ordered_new_lines(current_unversioned, previous_unversioned)
+        return [('unversioned', added)] if added else []
+
+    return []
+
+
+def _find_previous_published_archive(out, addon_id):
+    """Find the highest-version ZIP currently published for one add-on."""
+    folder = os.path.join(out, addon_id)
+    if not os.path.isdir(folder):
+        return None
+
+    best = None
+    for name in sorted(os.listdir(folder)):
+        if not name.lower().endswith('.zip'):
+            continue
+
+        path = os.path.join(folder, name)
+        try:
+            archive, previous_id, previous_version, _ = open_zip(path)
+            archive.close()
+        except (OSError, RepoError, zipfile.BadZipFile, RuntimeError) as error:
+            print(
+                'warning: skipping previous package {0}: {1}'.format(
+                    name,
+                    error,
+                )
+            )
+            continue
+
+        if previous_id != addon_id:
+            continue
+
+        if best is None or compare(previous_version, best[0]) > 0:
+            best = (previous_version, path)
+
+    return best[1] if best else None
+
+
+def _sha256_file(path):
+    digest = hashlib.sha256()
+    with open(path, 'rb') as source_file:
+        for chunk in iter(lambda: source_file.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def collect_release_changes(out, found):
+    """Compare selected uploads with the previously published ZIPs."""
+    changes = []
+
+    for addon_id in sorted(found):
+        version, source_path, _, files = found[addon_id]
+        previous_path = _find_previous_published_archive(out, addon_id)
+
+        if previous_path and _sha256_file(previous_path) == _sha256_file(source_path):
+            # The package itself is identical; it has no release delta.
+            continue
+
+        current_changelog = _changelog_text_from_members(files)
+        previous_changelog = _changelog_text_from_archive(previous_path)
+
+        current_text = current_changelog[1] if current_changelog else None
+        previous_text = previous_changelog[1] if previous_changelog else None
+        delta = changelog_delta(previous_text, current_text, version)
+
+        changes.append({
+            'addon_id': addon_id,
+            'version': version,
+            'changelog_path': current_changelog[0] if current_changelog else None,
+            'entries': delta,
+            'has_previous': bool(previous_path),
+        })
+
+    return changes
+
+
+def make_release_commit_message(changes):
+    """Create a compact, grouped Git commit message from release deltas."""
+    if not changes:
+        return 'Update generated Kodi repository files'
+
+    lines = ['Publish Kodi repository updates', '']
+    entry_count = 0
+    max_entries = 80
+    max_chars = 12000
+
+    for change in changes:
+        lines.append('{0} {1}'.format(change['addon_id'], change['version']))
+
+        entries = change['entries']
+        if not entries:
+            if change['changelog_path'] is None:
+                lines.append('  - Package updated; no changelog file found.')
+            else:
+                lines.append('  - Package updated; no new changelog entries detected.')
+            lines.append('')
+            continue
+
+        for section_version, section_entries in entries:
+            if section_version and section_version != 'unversioned':
+                lines.append('  [{0}]'.format(section_version))
+
+            for entry in section_entries:
+                if entry_count >= max_entries:
+                    lines.append('  - Additional changelog entries omitted to keep this commit concise.')
+                    break
+
+                # Changelog text comes from uploaded ZIPs. Remove control
+                # characters and bound line length before using it as metadata.
+                entry = ''.join(
+                    char for char in entry
+                    if char == '\t' or ord(char) >= 32
+                ).strip()
+                if not entry:
+                    continue
+                if len(entry) > 600:
+                    entry = entry[:597].rstrip() + '...'
+
+                lines.append('  - {0}'.format(entry))
+                entry_count += 1
+
+            if entry_count >= max_entries:
+                break
+
+        lines.append('')
+        if entry_count >= max_entries:
+            break
+
+    message = '\n'.join(lines).strip() + '\n'
+    if len(message) > max_chars:
+        message = message[:max_chars - 80].rsplit('\n', 1)[0]
+        message += '\n\nAdditional release notes omitted to keep the commit message concise.\n'
+    return message
+
+
+def write_github_output(name, value):
+    """Write a safe multiline GitHub Actions output when running in Actions."""
+    output_path = os.environ.get('GITHUB_OUTPUT')
+    if not output_path:
+        return
+
+    delimiter = 'LONGTIME_COMMIT_MESSAGE'
+    while delimiter in value:
+        delimiter += '_X'
+
+    with open(output_path, 'a', encoding='utf-8', newline='\n') as output:
+        output.write('{0}<<{1}\n'.format(name, delimiter))
+        output.write(value)
+        if not value.endswith('\n'):
+            output.write('\n')
+        output.write(delimiter + '\n')
 
 
 def assets_of(xml_text):
@@ -942,6 +1308,15 @@ def build(base, out, source):
             )
 
     os.makedirs(out, exist_ok=True)
+
+    # Compare each selected upload with the previously published ZIP before
+    # clear_folder() replaces that add-on's published directory.
+    release_changes = collect_release_changes(out, found)
+    commit_message = make_release_commit_message(release_changes)
+    write_github_output('commit_message', commit_message)
+
+    print('Generated Git commit message:')
+    print(commit_message.rstrip())
 
     # Preserve manually maintained output directories.
     for entry in os.listdir(out):
