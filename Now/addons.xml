@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addons>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.174">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.175">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -28,7 +28,7 @@
         <news>Check the Changelog in Tools &gt; Changelog &amp; Log Utils[/COLOR]</news>
     </extension>
 </addon>
-<addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.4.18" provider-name="Custom">
+<addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.4.19" provider-name="Custom">
   <requires><import addon="xbmc.python" version="3.0.1"/></requires>
   <extension point="xbmc.service" library="service.py" start="startup"/>
   <extension point="xbmc.python.script" library="folders.py"/>
@@ -174,7 +174,7 @@
         <description lang="zh_TW">插件为皮肤提供了简单的管理和用户连接方式列表 (需要皮肤支持)</description>
     </extension>
 </addon>
-<addon id="service.languagepreferencemanagernext" name="Language Preference Manager NeXt" version="2.0.12" provider-name="ace20022/scott967/rockrider69/FookYuuRai">
+<addon id="service.languagepreferencemanagernext" name="Language Preference Manager NeXt" version="2.0.13" provider-name="ace20022/scott967/rockrider69/FookYuuRai">
 	<requires>
 		<import addon="xbmc.python" version="3.0.0" />
 	</requires>
@@ -275,7 +275,7 @@
     <news>0.2.3 - the unpacked file name no longer keeps commas and similar characters (a comma split the PlayMedia arguments, so the file was not opened). 0.2.2 - releases with obfuscated or unquoted file names are now recognised (the real names are read from the first article of each big file); ZIP releases are recognised as packed; the "no video file" message lists the biggest files. 0.2.1 - unpacking now reads the whole release as ONE long file through vfs.nntp (rapidyenc decoder, connections shared by speed) when it is installed; the Python downloader is the fallback. 0.2.0 - new: unpack_to() downloads a packed release (stored RAR 2-5 / ZIP, multi-volume) and unpacks its video into a folder, so it plays from disk with no debrid service. 0.1.1 - fixes: the service no longer hangs when Kodi stops or updates it (it polled the GUI, which deadlocked), the empty servers setting no longer errors, the add-on shows under Program add-ons (opens its settings) as well as Services, and the fallback uses the running service for its local server. 0.1.0 - first version: STAT availability check, plan writer, Python fallback (HTTPS on 127.0.0.1), native vfs.nntp support.</news>
   </extension>
 </addon>
-<addon id="skin.nightshift" version="1.3.32" name="Nightshift" provider-name="Custom skin; based on Kodi Estuary">
+<addon id="skin.nightshift" version="1.3.33" name="Nightshift" provider-name="Custom skin; based on Kodi Estuary">
   <requires>
     <import addon="xbmc.gui" version="5.18.0" />
   <import addon="script.skinshortcuts" version="3.0.4" /><import addon="script.skin.info.service" version="2.0.2~neon2" optional="true" /></requires>
