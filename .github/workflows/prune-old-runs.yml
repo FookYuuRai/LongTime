@@ -345,21 +345,38 @@ jobs:
           async function main() {
             if (pipelineRun) {
               console.log(
-                "Pipeline cleanup: pruning old pipeline workflow history."
+                "Pipeline cleanup: pruning old workflow history."
               );
 
+              // Remove old ambience audio updater runs.
+              await pruneBeforeDate(
+                "update-nightshift-ambience-pack.yml",
+                branch,
+                "update-nightshift-ambience-pack.yml"
+              );
+
+              // Remove old GitHub Actions pin updater runs.
+              await pruneBeforeDate(
+                "update-action-pins.yml",
+                branch,
+                "update-action-pins.yml"
+              );
+
+              // Remove old pipeline runs.
               await pruneBeforeDate(
                 "pipeline.yml",
                 branch,
                 "pipeline.yml"
               );
 
+              // Remove old standalone Pages workflow runs.
               await pruneBeforeDate(
                 "pages.yml",
                 branch,
                 "pages.yml"
               );
 
+              // Remove old standalone repository-build runs.
               await pruneBeforeDate(
                 "build-repo.yml",
                 branch,
