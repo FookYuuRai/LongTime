@@ -1,0 +1,61 @@
+name: build repo
+
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-repo-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: OnTheSide
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Validate source Now and Later payloads
+        run: python3 tools/validate_repo_files.py --areas Now Later
+
+      - name: Generate Kodi repository files
+        id: repo
+        run: python3 tools/make_repo.py
+
+      - name: Validate generated Now and remaining Later payloads
+        run: python3 tools/validate_repo_files.py --areas Now Later
+
+      - name: Commit generated files
+        shell: bash
+        env:
+          COMMIT_MESSAGE: ${{ steps.repo.outputs.commit_message }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No generated changes to commit."
+          else
+            if [[ -z "${COMMIT_MESSAGE:-}" ]]; then
+              COMMIT_MESSAGE="Update generated Kodi repository files"
+            fi
+
+            printf '%s\n' "$COMMIT_MESSAGE" > "$RUNNER_TEMP/longtime-commit-message.txt"
+            git commit -F "$RUNNER_TEMP/longtime-commit-message.txt"
+            git push origin HEAD:OnTheSide
+          fi
