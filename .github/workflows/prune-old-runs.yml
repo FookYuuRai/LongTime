@@ -82,6 +82,8 @@ jobs:
           const branch = process.env.TARGET_BRANCH;
           const currentRunId = process.env.CURRENT_RUN_ID;
 
+          const TIME_ZONE = "America/Chicago";
+
           const PAGES_WORKFLOW_PATH =
             ".github/workflows/pages.yml";
 
@@ -103,15 +105,50 @@ jobs:
             );
           }
 
-          // Retain all runs created today (UTC).
-          const cutoffDate = new Date().toISOString().slice(0, 10);
+          // Return YYYY-MM-DD in the requested IANA timezone.
+          // Do not use toISOString().slice(0, 10) for local-date retention:
+          // toISOString() always returns the UTC calendar date.
+          function dateInTimeZone(date, timeZone = TIME_ZONE) {
+            const parts = new Intl.DateTimeFormat("en-US", {
+              timeZone,
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit"
+            }).formatToParts(date);
+
+            const values = Object.fromEntries(
+              parts.map(part => [part.type, part.value])
+            );
+
+            return `${values.year}-${values.month}-${values.day}`;
+          }
+
+          function localRunDate(run) {
+            if (typeof run.created_at !== "string") {
+              return null;
+            }
+
+            const date = new Date(run.created_at);
+
+            if (Number.isNaN(date.getTime())) {
+              return null;
+            }
+
+            return dateInTimeZone(date);
+          }
+
+          // Runs dated today in Central Time are retained.
+          // Only completed runs whose Central Time date is earlier than
+          // this cutoff date are eligible for deletion.
+          const cutoffDate = dateInTimeZone(new Date());
 
           console.log(`Repository: ${repository}`);
           console.log(`Branch: ${branch}`);
           console.log(`Current cleanup run: ${currentRunId}`);
-          console.log(`Retention cutoff (UTC): ${cutoffDate}`);
+          console.log(`Retention timezone: ${TIME_ZONE}`);
+          console.log(`Retention cutoff (${TIME_ZONE}): ${cutoffDate}`);
           console.log(
-            "Completed runs created before this UTC date are eligible for deletion."
+            `Completed runs dated before ${cutoffDate} in ${TIME_ZONE} are eligible for deletion.`
           );
 
           const headers = {
@@ -194,8 +231,7 @@ jobs:
           async function getWorkflowRuns(workflowIdOrFile, branchFilter) {
             const runs = [];
 
-            // GitHub's workflow-runs endpoint supports the workflow ID
-            // or the workflow filename.
+            // GitHub accepts a workflow ID or workflow filename.
             for (let page = 1; page <= 10; page++) {
               const parameters = new URLSearchParams({
                 per_page: "100",
@@ -211,7 +247,6 @@ jobs:
                 `${encodeURIComponent(String(workflowIdOrFile))}/runs?${parameters}`;
 
               const result = await githubApi(path);
-
               const pageRuns = result.workflow_runs || [];
 
               runs.push(...pageRuns);
@@ -229,19 +264,65 @@ jobs:
             shouldDelete,
             label
           ) {
-            const selected = runs.filter(run =>
-              run.status === "completed" && shouldDelete(run)
+            const completedRuns = runs.filter(
+              run => run.status === "completed"
             );
 
-            console.log(
-              `${label}: inspected ${runs.length} run(s); ` +
-              `${selected.length} completed run(s) selected.`
-            );
+            const selected = completedRuns.filter(shouldDelete);
+
+            const validDates = runs
+              .map(run => ({
+                run,
+                localDate: localRunDate(run)
+              }))
+              .filter(item => item.localDate !== null)
+              .sort((a, b) =>
+                a.localDate.localeCompare(b.localDate)
+              );
+
+            console.log("");
+            console.log(`--- ${label} ---`);
+            console.log(`Runs returned by API: ${runs.length}`);
+            console.log(`Completed runs: ${completedRuns.length}`);
+            console.log(`Completed runs selected: ${selected.length}`);
+
+            if (validDates.length > 0) {
+              const oldest = validDates[0];
+              const newest = validDates[validDates.length - 1];
+
+              console.log(
+                `Oldest returned run: ${oldest.run.id}; ` +
+                `UTC=${oldest.run.created_at}; ` +
+                `${TIME_ZONE}=${oldest.localDate}`
+              );
+
+              console.log(
+                `Newest returned run: ${newest.run.id}; ` +
+                `UTC=${newest.run.created_at}; ` +
+                `${TIME_ZONE}=${newest.localDate}`
+              );
+            }
+
+            if (runs.length === 0) {
+              console.log(
+                "No standalone workflow runs were returned for this workflow identifier and branch."
+              );
+            }
 
             let deleted = 0;
             let failed = 0;
 
             for (const run of selected) {
+              const runDate = localRunDate(run);
+
+              // Never delete the currently executing cleanup run.
+              if (String(run.id) === String(currentRunId)) {
+                console.log(
+                  `Keeping current cleanup run ${run.id}.`
+                );
+                continue;
+              }
+
               try {
                 await githubApi(
                   `/repos/${repository}/actions/runs/${run.id}`,
@@ -251,8 +332,10 @@ jobs:
                 deleted++;
 
                 console.log(
-                  `Deleted ${label} run ${run.id}: ${run.created_at} ` +
-                  `(${run.conclusion || run.status})`
+                  `Deleted ${label} run ${run.id}: ` +
+                  `UTC=${run.created_at}; ` +
+                  `${TIME_ZONE}=${runDate}; ` +
+                  `conclusion=${run.conclusion || run.status}`
                 );
               } catch (error) {
                 failed++;
@@ -290,24 +373,29 @@ jobs:
 
             await deleteCompletedRuns(
               runs,
-              run =>
-                typeof run.created_at === "string" &&
-                run.created_at.slice(0, 10) < cutoffDate,
+              run => {
+                const runDate = localRunDate(run);
+
+                return (
+                  runDate !== null &&
+                  runDate < cutoffDate &&
+                  String(run.id) !== String(currentRunId)
+                );
+              },
               label
             );
           }
 
           async function pruneAllPagesHistory() {
-            // This is the actual Pages workflow discovered in the repository:
-            // .github/workflows/pages.yml
-            // Its ID is discovered at runtime, not hard-coded.
+            // Resolve the Pages workflow dynamically instead of hard-coding
+            // its workflow ID.
             const pagesWorkflowId = await findWorkflowIdByPath(
               PAGES_WORKFLOW_PATH,
               "Publish GitHub Pages"
             );
 
-            // No branch filter: include all completed runs of this exact
-            // Pages workflow across branches and dates.
+            // No branch filter: include all completed runs returned for
+            // this workflow across branches and dates.
             const runs = await getWorkflowRuns(
               pagesWorkflowId,
               null
@@ -334,10 +422,15 @@ jobs:
 
             await deleteCompletedRuns(
               ownRuns,
-              run =>
-                String(run.id) !== String(currentRunId) &&
-                typeof run.created_at === "string" &&
-                run.created_at.slice(0, 10) < cutoffDate,
+              run => {
+                const runDate = localRunDate(run);
+
+                return (
+                  String(run.id) !== String(currentRunId) &&
+                  runDate !== null &&
+                  runDate < cutoffDate
+                );
+              },
               "prune-old-runs.yml"
             );
           }
@@ -348,11 +441,11 @@ jobs:
                 "Pipeline cleanup: pruning old workflow history."
               );
 
-              // Remove old ambience audio updater runs.
-              await pruneBeforeDate(
-                "update-nightshift-ambience-pack.yml",
-                branch,
-                "update-nightshift-ambience-pack.yml"
+              // These files are reusable workflow_call workflows in the
+              // current pipeline. Their jobs appear inside pipeline runs;
+              // they do not necessarily have separate run-history entries.
+              console.log(
+                "Note: reusable workflow job history is contained in its parent pipeline run."
               );
 
               // Remove old GitHub Actions pin updater runs.
@@ -362,25 +455,12 @@ jobs:
                 "update-action-pins.yml"
               );
 
-              // Remove old pipeline runs.
+              // Remove old parent pipeline runs. This also removes their
+              // nested reusable-workflow job history from the Actions UI.
               await pruneBeforeDate(
                 "pipeline.yml",
                 branch,
                 "pipeline.yml"
-              );
-
-              // Remove old standalone Pages workflow runs.
-              await pruneBeforeDate(
-                "pages.yml",
-                branch,
-                "pages.yml"
-              );
-
-              // Remove old standalone repository-build runs.
-              await pruneBeforeDate(
-                "build-repo.yml",
-                branch,
-                "build-repo.yml"
               );
 
             } else if (eventName === "workflow_run") {
@@ -410,7 +490,7 @@ jobs:
             await pruneOwnOlderRuns();
 
             console.log(
-              `Workflow-history cleanup completed for cutoff ${cutoffDate}.`
+              `Workflow-history cleanup completed for cutoff ${cutoffDate} (${TIME_ZONE}).`
             );
           }
 
