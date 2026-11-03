@@ -1,43 +1,94 @@
 # LongTime
 
-Add-on ZIPs and the files Kodi needs to install and update them.
+LongTime builds and publishes a Kodi add-on repository and its GitHub Pages website. Add-on ZIPs are submitted through `Later/`; validated, generated repository files are published under `Now/`.
 
-Folders:
-- `Later/`: upload folder. Put new add-on ZIPs here.
-- `Now/`: published folder. The build writes it. Kodi reads it.
+## Repository layout
+
+- `Later/`: incoming add-on ZIPs awaiting publication.
+- `Now/`: generated Kodi repository, published add-on ZIPs, and website assets.
+- `tools/make_repo.py`: builds the Kodi repository and prepares a descriptive commit message from add-on changelog changes.
+- `tools/validate_repo_files.py`: read-only validation of repository payloads.
+- `.github/workflows/`: automation for repository builds, Pages deployment, and supported add-on update tasks.
+- `index.html`: GitHub Pages homepage.
+
+Generated files in `Now/` should be produced by the repository build rather than edited manually.
 
 ## Add or update an add-on
 
-1. Put the add-on ZIP in `Later/`. The ZIP must hold one top-level folder named exactly like the add-on ID, with `addon.xml` inside, and nothing else outside that folder.
-2. The `build repo` workflow validates the payloads, runs `tools/make_repo.py`, validates the generated repository again, and commits the generated files.
-3. The build publishes the highest version of each add-on in `Now/`, updates `Now/addons.xml` and its checksum, and deletes older ZIPs from `Later/`. Deleted copies remain in Git history.
+1. Place the add-on ZIP in `Later/`.
+2. The ZIP must contain one top-level directory named exactly after the add-on ID, with `addon.xml` inside it. Do not include unrelated files outside that directory.
+3. The build validates the incoming payloads, runs `tools/make_repo.py`, and validates the generated repository and remaining payloads.
+4. The build publishes the highest eligible version of each add-on, updates repository metadata and checksums, and removes older ZIPs from `Later/` when appropriate.
+5. Generated changes are committed and pushed to `OnTheSide`.
 
-A new version needs a higher `version` in its `addon.xml` than the one published. Versions are compared like Kodi does: `1.1.1~beta2` is older than `1.1.1`, which is older than `1.1.2`.
+A new release must have a higher version in `addon.xml` than the currently published release. Version ordering follows Kodi-compatible comparison rules. For example, `1.1.1~beta2` is older than `1.1.1`, which is older than `1.1.2`.
 
-## Payload cleanliness checks
+### Generated commit messages
 
-`tools/validate_repo_files.py` is the shared, read-only validator used by both `build-repo.yml` and `pages.yml` (and by the Nightshift ambience pack updater). It recursively checks loose files and every ZIP under `Now/` and `Later/`. It fails the workflow rather than silently publishing a dirty archive.
+The repository build compares uploaded add-on changelogs with the previously published ZIPs and uses newly added or changed release notes to prepare the Git commit message.
 
-The validator rejects hidden files or directories, `__pycache__`, `__MACOSX`, `.pyc`, `.pyo`, `.DS_Store`, `Thumbs.db`, `desktop.ini`, `ehthumbs.db`, symbolic links, unsafe ZIP paths, duplicate ZIP entries, and corrupt ZIP archives. It also validates the staged `Now/` copy before GitHub Pages uploads it.
+This keeps repository history more descriptive than a generic message such as `rebuild repo`. If a useful changelog delta cannot be determined, the build uses a fallback message rather than inventing release notes.
 
-Run it locally from the repository root with:
+The automation uses the `github-actions[bot]` Git author identity for generated commits.
+
+## Payload validation
+
+`tools/validate_repo_files.py` is a read-only validator used by the build and Pages workflows. It checks loose files and ZIP archives under `Now/` and `Later/`, including the staged website payload.
+
+Checks include:
+
+- Hidden files and directories.
+- Python cache directories and bytecode.
+- Operating-system metadata files such as `.DS_Store` and `Thumbs.db`.
+- Symbolic links.
+- Unsafe ZIP paths and path traversal.
+- Duplicate ZIP entries.
+- Corrupt ZIP archives.
+
+The validator reports problems and exits unsuccessfully; it does not delete or repair files automatically.
+
+Run it locally from the repository root:
 
 ```bash
 python3 tools/validate_repo_files.py --areas Now Later
 ```
 
-The validator does not delete or repair files. Remove or replace the reported item, then rerun the build.
+To validate a staged Pages directory:
+
+```bash
+python3 tools/validate_repo_files.py --root _site --areas Now
+```
+
+Remove or replace any reported files, then rerun validation.
+
+## GitHub Pages
+
+The Pages workflow validates repository payloads, prepares the website from `index.html` and the published `Now/` directory, checks the configured background-audio asset, validates the staged website, and deploys the Pages artifact.
+
+Repository generation and website deployment are separate workflow tasks. A successful repository build does not, by itself, prove that website deployment succeeded; check the corresponding GitHub Actions run.
+
+Published repository URL:
+
+https://FookYuuRai.github.io/LongTime/
 
 ## Nightshift ambience pack
 
-The ambience pack updater discovers the actual supported audio filenames in each release ZIP. It regenerates `tracks.py`, the per-track Kodi settings, and English labels from that list; there is no fixed track count. The add-on stores the installed pack SHA-256 and refreshes audio even when a track is replaced under the same filename. Obsolete pack-managed tracks are removed only after the replacement pack is verified and installed.
+The ambience pack updater discovers supported audio filenames from the release ZIP rather than relying on a fixed track count. It regenerates track definitions, per-track Kodi settings, and English labels from the available tracks.
 
-## Install in Kodi (once)
+The add-on records the installed pack's SHA-256 so it can detect changed audio even when a filename remains the same. Pack-managed tracks are removed only after a replacement pack has been verified and installed.
 
-Kodi needs the repository add-on, `repository.longtime-1.0.0.zip`, once. Add `https://FookYuuRai.github.io/LongTime/` as a source in Kodi's File Manager, then install the repository ZIP from `Now/repository.longtime/`.
+## Install the repository in Kodi
 
-Kodi checks the repository for updates on its own schedule (and at start-up). Restarting Kodi forces a check.
+Install the repository add-on once using the generated repository ZIP under `Now/repository.longtime/`.
 
-## Already installed before the folder rename
+Add the repository URL below as a source in Kodi's File Manager:
 
-Devices that installed the repository before the rename still point at the old `repo/` address, which no longer exists, so they will not see updates. Reinstall the repository add-on once from the `Now/` paths above. After that, updates arrive through the normal check.
+https://FookYuuRai.github.io/LongTime/
+
+Then install the repository ZIP and allow Kodi to check for add-on updates.
+
+Kodi checks for updates on its own schedule and at startup. Restarting Kodi can prompt an earlier check.
+
+## Existing installations using the old URL
+
+Devices configured before the repository URL or folder layout changed may still point to the old `repo/` address. Those installations will not receive updates from the new address until the repository add-on is reinstalled from the current `Now/` paths.
