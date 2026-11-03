@@ -33,6 +33,125 @@ jobs:
       - name: Validate source Now and Later payloads
         run: python3 tools/validate_repo_files.py --areas Now Later
 
+      - name: Diagnose GitHub Pages API response
+        shell: bash
+        env:
+          PAGES_TOKEN: ${{ secrets.PAGES_ENABLEMENT_TOKEN }}
+        run: |
+          set -uo pipefail
+
+          RESPONSE_FILE="$(mktemp)"
+          trap 'rm -f "$RESPONSE_FILE"' EXIT
+
+          SUMMARY="$GITHUB_STEP_SUMMARY"
+          API_URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/pages"
+
+          echo "::group::GitHub Pages API preflight diagnostics"
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Request: GET /repos/${GITHUB_REPOSITORY}/pages"
+
+          write_summary() {
+            {
+              echo "### GitHub Pages API preflight"
+              echo
+              echo "- Repository: \`${GITHUB_REPOSITORY}\`"
+              echo "- API response: **$1**"
+              echo
+              echo "$2"
+            } >> "$SUMMARY"
+          }
+
+          if [[ -z "${PAGES_TOKEN:-}" ]]; then
+            MESSAGE="PAGES_ENABLEMENT_TOKEN was not supplied to the Pages workflow. Check the repository Actions secret and the caller workflow's secrets: inherit setting."
+
+            echo "::error title=Missing Pages activation token::$MESSAGE"
+            echo "$MESSAGE"
+            write_summary "Missing token" "$MESSAGE"
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          echo "Checking whether GitHub currently exposes a Pages site..."
+
+          HTTP_STATUS="$(
+            curl \
+              --silent \
+              --show-error \
+              --max-time 25 \
+              --output "$RESPONSE_FILE" \
+              --write-out '%{http_code}' \
+              --header "Accept: application/vnd.github+json" \
+              --header "Authorization: Bearer ${PAGES_TOKEN}" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "$API_URL"
+          )"
+          CURL_EXIT=$?
+
+          if [[ "$CURL_EXIT" -ne 0 || "$HTTP_STATUS" == "000" ]]; then
+            MESSAGE="The preflight request could not obtain an HTTP response. This may be a temporary network or GitHub API issue. The Configure GitHub Pages action will still make its own attempt."
+
+            echo "::warning title=Pages API preflight unavailable::$MESSAGE"
+            echo "$MESSAGE"
+            write_summary "Request unavailable" "$MESSAGE"
+            echo "::endgroup::"
+            exit 0
+          fi
+
+          echo "HTTP status: $HTTP_STATUS"
+
+          case "$HTTP_STATUS" in
+            200)
+              MESSAGE="GitHub returned HTTP 200. An existing Pages site is visible to the supplied token. The workflow will continue with normal Pages configuration."
+
+              echo "$MESSAGE"
+              write_summary "200 OK — Pages site found" "$MESSAGE"
+              ;;
+
+            404)
+              MESSAGE="GitHub returned HTTP 404 for the Get Pages site request. This means GitHub did not return an active Pages site for this repository and token. This can occur when Pages has not yet been enabled, or when Pages was previously disabled or deactivated. A 404 alone does not establish which situation applies, and GitHub can also return 404 when a resource is not accessible to the token.
+
+          The next Configure GitHub Pages step will run with PAGES_ENABLEMENT_TOKEN and enablement: true. It will attempt to enable or initialize GitHub Pages.
+
+          If activation succeeds, the workflow can continue to build and deploy the website. If activation fails, check that the PAT has access to this repository and the required Pages write permission."
+
+              echo "::notice title=Pages site not currently returned — activation will be attempted::GitHub returned HTTP 404. Pages may not be enabled or may have been deactivated. The next step will attempt activation using the supplied PAT."
+              echo
+              echo "DETAILED DIAGNOSTIC:"
+              echo "$MESSAGE"
+              write_summary "404 Not Found — activation will be attempted" "$MESSAGE"
+              ;;
+
+            401)
+              MESSAGE="GitHub returned HTTP 401 Unauthorized. The supplied Pages activation token was not accepted. Check whether PAGES_ENABLEMENT_TOKEN is present, valid, unexpired, and copied in full."
+
+              echo "::error title=Pages activation token rejected::$MESSAGE"
+              echo "$MESSAGE"
+              write_summary "401 Unauthorized" "$MESSAGE"
+              echo "::endgroup::"
+              exit 1
+              ;;
+
+            403)
+              MESSAGE="GitHub returned HTTP 403 Forbidden. The token was recognized but does not have sufficient access to this repository or the Pages API. Check the fine-grained PAT repository selection and Pages read/write permissions. The enablement operation requires Pages write access."
+
+              echo "::error title=Pages activation permission denied::$MESSAGE"
+              echo "$MESSAGE"
+              write_summary "403 Forbidden" "$MESSAGE"
+              echo "::endgroup::"
+              exit 1
+              ;;
+
+            *)
+              MESSAGE="GitHub returned an unexpected HTTP status ($HTTP_STATUS) when checking the Pages site. The Configure GitHub Pages action will make its own attempt. Check the action output for the final result."
+
+              echo "::warning title=Unexpected Pages API response::$MESSAGE"
+              echo "$MESSAGE"
+              write_summary "$HTTP_STATUS — unexpected response" "$MESSAGE"
+              ;;
+          esac
+
+          echo "::endgroup::"
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
         with:
