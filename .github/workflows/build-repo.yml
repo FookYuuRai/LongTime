@@ -29,9 +29,9 @@ jobs:
       - name: Validate source Now and Later payloads
         run: python3 tools/validate_repo_files.py --areas Now Later
 
-      - name: Generate Kodi repository files
+      - name: Generate Kodi repository files using the GitHub Pages feed
         id: repo
-        run: python3 tools/make_repo.py
+        run: python3 tools/make_repo.py --base "https://fookyuurai.github.io/LongTime/Now/"
 
       - name: Validate generated Now and remaining Later payloads
         run: python3 tools/validate_repo_files.py --areas Now Later
