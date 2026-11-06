@@ -35,15 +35,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  update-nightshift-font-pack:
-    name: "1. Extract Nightshift fonts and package skin"
-    uses: ./.github/workflows/update-nightshift-font-pack.yml
-    permissions:
-      contents: write
-
   update-ambience:
-    name: "2. Update ambience audio pack"
-    needs: update-nightshift-font-pack
+    name: "1. Update ambience audio pack"
     uses: ./.github/workflows/update-nightshift-ambience-pack.yml
     with:
       pack_url: ${{ inputs.pack_url || 'https://github.com/FookYuuRai/LongTime/releases/download/ambience-audio-v1/ambience-audio-opus96.zip' }}
@@ -51,14 +44,14 @@ jobs:
       contents: write
 
   build-repo:
-    name: "3. Build repository"
+    name: "2. Build repository"
     needs: update-ambience
     uses: ./.github/workflows/build-repo.yml
     permissions:
       contents: write
 
   publish-pages:
-    name: "4. Publish GitHub Pages"
+    name: "3. Publish GitHub Pages"
     needs: build-repo
     uses: ./.github/workflows/pages.yml
     secrets: inherit
@@ -69,7 +62,7 @@ jobs:
       id-token: write
 
   prune-history:
-    name: "5. Prune old workflow runs and inactive deployments"
+    name: "4. Prune old workflow runs and inactive deployments"
     needs: publish-pages
     uses: ./.github/workflows/prune-old-runs.yml
     with:
