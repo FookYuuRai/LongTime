@@ -65,9 +65,9 @@ jobs:
           MAX_DOWNLOAD = 100 * 1024 * 1024
 
           output_file = os.environ.get('GITHUB_OUTPUT')
-          if output_file:
-              with open(output_file, 'a', encoding='utf-8') as f:
-                  f.write('changed=false\n')
+          # Write exactly one final value for changed. Do not pre-write false:
+          # duplicate GITHUB_OUTPUT keys can cause the false value to win and
+          # incorrectly skip package validation and publishing.
 
           def summary(message):
               print(message)
@@ -217,7 +217,9 @@ jobs:
 
           def skin_packages():
               found = []
-              for path in Path('Later').glob('skin_nightshift-*.zip'):
+              # Use the Kodi add-on ID in the Later filename; underscore variants
+              # do not match the canonical package names used by this repository.
+              for path in Path('Later').glob('skin.nightshift-*.zip'):
                   found.append(path)
               for path in Path('Now', SKIN_ID).glob('skin.nightshift-*.zip'):
                   found.append(path)
@@ -250,8 +252,11 @@ jobs:
           if latest:
               latest_version, latest_path, latest_root = latest
               latest_manifest = package_manifest(latest_path, latest_root)
-              if latest_manifest and latest_manifest.get('font_sha256') == FONT_SHA256 and latest_manifest.get('source_sha256') == SOURCE_SHA256:
+              if latest_manifest and latest_manifest.get('font_sha256') == FONT_SHA256 and latest_manifest.get('source_sha256') == SOURCE_SHA256 and latest_manifest.get('font_url') == FONT_PUBLIC_URL:
                   summary('### Nightshift external font package check\nNo change: the latest repository skin already references the verified font pack and source release. The original source release asset is not needed for this no-op run.')
+                  if output_file:
+                      with open(output_file, 'a', encoding='utf-8') as f:
+                          f.write('changed=false\n')
                   raise SystemExit(0)
           else:
               latest_version = None
@@ -486,8 +491,8 @@ jobs:
               }
 
               # Create the two add-on ZIPs with deterministic, clean entries.
-              skin_zip_name = f'skin_nightshift-{new_version_text}.zip'
-              service_zip_name = f'service_nightshift_fontinstaller-{new_version_text}.zip'
+              skin_zip_name = f'{SKIN_ID}-{new_version_text}.zip'
+              service_zip_name = f'{SERVICE_ID}-{new_version_text}.zip'
               later = Path('Later')
               later.mkdir(parents=True, exist_ok=True)
               skin_output = later / skin_zip_name
@@ -534,22 +539,22 @@ jobs:
               skin_bytes = skin_output.stat().st_size
               service_bytes = service_output.stat().st_size
               summary(
-                  '### Nightshift external font extraction complete\\n'
-                  f'- Source skin: `{SOURCE_RELEASE_TAG}` / `{SOURCE_ASSET_NAME}` ({source_size:,} bytes; authenticated API + SHA-256 verified)\\n'
-                  f'- Font pack: `{FONT_RELEASE_TAG}` / `{FONT_ASSET_NAME}` ({font_size:,} bytes; authenticated API + SHA-256 verified)\\n'
-                  f'- Public installer URL: `{FONT_PUBLIC_URL}` (copied into GitHub Pages)\\n'
-                  f'- Removed bundled fonts: `{len(bundled)}`\\n'
-                  f'- Font installer: `{SERVICE_ID}` version `{SERVICE_VERSION}`\\n'
-                  f'- Skin version: `{old_version}` → `{new_version_text}`\\n'
-                  f'- Generated skin ZIP: `{skin_output}` ({skin_bytes:,} bytes)\\n'
-                  f'- Generated installer ZIP: `{service_output}` ({service_bytes:,} bytes)\\n'
-                  '- Both ZIPs passed CRC, XML, dependency, archive-cleanliness and Python syntax checks.\\n'
+                  '### Nightshift external font extraction complete\n'
+                  f'- Source skin: `{SOURCE_RELEASE_TAG}` / `{SOURCE_ASSET_NAME}` ({source_size:,} bytes; authenticated API + SHA-256 verified)\n'
+                  f'- Font pack: `{FONT_RELEASE_TAG}` / `{FONT_ASSET_NAME}` ({font_size:,} bytes; authenticated API + SHA-256 verified)\n'
+                  f'- Public installer URL: `{FONT_PUBLIC_URL}` (copied into GitHub Pages)\n'
+                  f'- Removed bundled fonts: `{len(bundled)}`\n'
+                  f'- Font installer: `{SERVICE_ID}` version `{SERVICE_VERSION}`\n'
+                  f'- Skin version: `{old_version}` → `{new_version_text}`\n'
+                  f'- Generated skin ZIP: `{skin_output}` ({skin_bytes:,} bytes)\n'
+                  f'- Generated installer ZIP: `{service_output}` ({service_bytes:,} bytes)\n'
+                  '- Both ZIPs passed CRC, XML, dependency, archive-cleanliness and Python syntax checks.\n'
               )
               if output_file:
                   with open(output_file, 'a', encoding='utf-8') as f:
-                      f.write('changed=true\\n')
-                      f.write(f'skin_zip={skin_output}\\n')
-                      f.write(f'service_zip={service_output}\\n')
+                      f.write('changed=true\n')
+                      f.write(f'skin_zip={skin_output}\n')
+                      f.write(f'service_zip={service_output}\n')
           finally:
               shutil.rmtree(temp, ignore_errors=True)
           PY
