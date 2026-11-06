@@ -2,12 +2,6 @@ name: Update Nightshift external font pack
 
 on:
   workflow_call:
-    inputs:
-      source_skin_url:
-        description: Direct HTTPS URL of the original Nightshift skin ZIP stored as a GitHub Release asset
-        required: false
-        type: string
-        default: 'https://github.com/FookYuuRai/LongTime/releases/download/nightshift-skin-font-extraction-v1/skin.nightshift-1.3.75.zip'
 
 permissions:
   contents: write
@@ -37,7 +31,7 @@ jobs:
         id: update
         shell: bash
         env:
-          SOURCE_SKIN_URL: ${{ inputs.source_skin_url }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -54,10 +48,14 @@ jobs:
           from pathlib import Path, PurePosixPath
           from xml.etree import ElementTree as ET
 
-          SOURCE_URL = os.environ['SOURCE_SKIN_URL'].strip()
+          REPO = 'FookYuuRai/LongTime'
+          SOURCE_RELEASE_TAG = 'nightshift-skin-font-extraction-v1'
+          SOURCE_ASSET_NAME = 'skin.nightshift-1.3.75.zip'
           SOURCE_SHA256 = '8fe0debf851804a1b8fc7136fdfc07865907f70ade6d76e8ad9639b36c0ac3cc'
-          FONT_URL = 'https://github.com/FookYuuRai/LongTime/releases/download/nightshift-fonts-v1/fontpack_combined.zip'
+          FONT_RELEASE_TAG = 'nightshift-fonts-v1'
+          FONT_ASSET_NAME = 'fontpack_combined.zip'
           FONT_SHA256 = '99f85a7a2e1522446bc49bea0021df77367881f29a4b48e476c1b82a639643cc'
+          FONT_PUBLIC_URL = 'https://fookyuurai.github.io/LongTime/assets/nightshift/fontpack_combined.zip'
           SKIN_ID = 'skin.nightshift'
           SERVICE_ID = 'service.nightshift.fontinstaller'
           SERVICE_VERSION = None  # Set to the generated skin version below.
@@ -83,24 +81,77 @@ jobs:
               if parsed.scheme != 'https' or not parsed.netloc:
                   raise SystemExit('Release asset URL must be a valid HTTPS URL.')
 
-          def download(url, destination, expected_sha):
-              valid_https(url)
+          def release_asset_api_url(tag, asset_name, expected_sha):
+              token = os.environ.get('GH_TOKEN', '').strip()
+              if not token:
+                  raise SystemExit('GITHUB_TOKEN is unavailable; grant contents: read/write to this reusable workflow.')
+              release_url = f'https://api.github.com/repos/{REPO}/releases/tags/{tag}'
+              request = urllib.request.Request(release_url, headers={
+                  'Accept': 'application/vnd.github+json',
+                  'Authorization': 'Bearer ' + token,
+                  'X-GitHub-Api-Version': '2022-11-28',
+                  'User-Agent': 'LongTime-Nightshift-Font-Updater',
+              })
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      release = json.loads(response.read().decode('utf-8'))
+              except Exception as exc:
+                  raise SystemExit(f'Could not read private GitHub Release {tag!r} through the authenticated API: {exc}')
+              matches = [a for a in release.get('assets', []) if a.get('name') == asset_name]
+              if len(matches) != 1:
+                  raise SystemExit(f'Expected exactly one release asset {asset_name!r} in {tag!r}; found {len(matches)}.')
+              asset = matches[0]
+              expected_digest = 'sha256:' + expected_sha
+              if asset.get('digest') != expected_digest:
+                  raise SystemExit(f'Release metadata SHA-256 mismatch for {asset_name}: expected {expected_digest}, got {asset.get("digest")!r}.')
+              return asset['url']
+
+          def download_release_asset(tag, asset_name, destination, expected_sha):
+              token = os.environ.get('GH_TOKEN', '').strip()
+              api_url = release_asset_api_url(tag, asset_name, expected_sha)
               digest = hashlib.sha256()
               size = 0
-              request = urllib.request.Request(url, headers={'User-Agent': 'LongTime-Nightshift-Font-Updater'})
-              with urllib.request.urlopen(request, timeout=90) as response, open(destination, 'wb') as target:
-                  while True:
-                      block = response.read(1024 * 1024)
-                      if not block:
-                          break
-                      size += len(block)
-                      if size > MAX_DOWNLOAD:
-                          raise SystemExit('Downloaded archive exceeded the 100 MiB safety limit.')
-                      target.write(block)
-                      digest.update(block)
+              request = urllib.request.Request(api_url, headers={
+                  'Accept': 'application/octet-stream',
+                  'Authorization': 'Bearer ' + token,
+                  'X-GitHub-Api-Version': '2022-11-28',
+                  'User-Agent': 'LongTime-Nightshift-Font-Updater',
+              })
+              # Do not let urllib forward the GitHub bearer token to the external
+              # release-assets CDN when the API responds with a redirect.
+              class NoRedirect(urllib.request.HTTPRedirectHandler):
+                  def redirect_request(self, req, fp, code, msg, headers, newurl):
+                      return None
+
+              opener = urllib.request.build_opener(NoRedirect())
+              try:
+                  try:
+                      response = opener.open(request, timeout=90)
+                  except urllib.error.HTTPError as redirect:
+                      if redirect.code not in (301, 302, 303, 307, 308) or not redirect.headers.get('Location'):
+                          raise
+                      # The Location is a short-lived signed URL; fetch it without
+                      # Authorization so credentials never leave api.github.com.
+                      signed_request = urllib.request.Request(
+                          redirect.headers['Location'],
+                          headers={'User-Agent': 'LongTime-Nightshift-Font-Updater'},
+                      )
+                      response = urllib.request.urlopen(signed_request, timeout=90)
+                  with response, open(destination, 'wb') as target:
+                      while True:
+                          block = response.read(1024 * 1024)
+                          if not block:
+                              break
+                          size += len(block)
+                          if size > MAX_DOWNLOAD:
+                              raise SystemExit('Downloaded archive exceeded the 100 MiB safety limit.')
+                          target.write(block)
+                          digest.update(block)
+              except Exception as exc:
+                  raise SystemExit(f'Authenticated download failed for release asset {asset_name!r} ({tag}): {exc}')
               actual = digest.hexdigest()
               if actual != expected_sha:
-                  raise SystemExit(f'SHA-256 mismatch for {url}: expected {expected_sha}, got {actual}')
+                  raise SystemExit(f'SHA-256 mismatch for release asset {asset_name}: expected {expected_sha}, got {actual}')
               return size
 
           def junk(name):
@@ -209,8 +260,8 @@ jobs:
           source_zip = temp / 'source-skin.zip'
           font_zip = temp / 'fontpack.zip'
           try:
-              source_size = download(SOURCE_URL, source_zip, SOURCE_SHA256)
-              font_size = download(FONT_URL, font_zip, FONT_SHA256)
+              source_size = download_release_asset(SOURCE_RELEASE_TAG, SOURCE_ASSET_NAME, source_zip, SOURCE_SHA256)
+              font_size = download_release_asset(FONT_RELEASE_TAG, FONT_ASSET_NAME, font_zip, FONT_SHA256)
               addon_root, files = read_skin_archive(source_zip)
 
               # Locate exactly four bundled combined fonts and remove only those files.
@@ -282,14 +333,15 @@ jobs:
                   'source_release': 'nightshift-skin-font-extraction-v1',
                   'source_sha256': SOURCE_SHA256,
                   'font_release': 'nightshift-fonts-v1',
-                  'font_url': FONT_URL,
+                  'font_url': FONT_PUBLIC_URL,
                   'font_sha256': FONT_SHA256,
                   'font_files': sorted(font_files),
               }
               manifest_name = addon_root + 'resources/nightshift_fontpack.json'
               files[manifest_name] = (json.dumps(manifest, indent=2, sort_keys=True) + '\n').encode('utf-8')
 
-              # Build the companion service add-on. It downloads only from the pinned public release URL.
+              # Build the companion service add-on. It downloads from the public GitHub Pages copy;
+              # the repository itself is private, so anonymous Release URLs return HTTP 404.
               service_root = SERVICE_ID + '/'
               service_addon_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
           <addon id="{SERVICE_ID}" name="NightShift Font Installer" version="{SERVICE_VERSION}" provider-name="NightShift">
@@ -318,7 +370,7 @@ jobs:
 
           ADDON_ID = '{SERVICE_ID}'
           SKIN_ID = '{SKIN_ID}'
-          PACK_URL = '{FONT_URL}'
+          PACK_URL = '{FONT_PUBLIC_URL}'
           PACK_SHA256 = '{FONT_SHA256}'
           FONT_NAMES = {sorted(font_files)!r}
           MAX_PACK_BYTES = 100 * 1024 * 1024
@@ -483,8 +535,9 @@ jobs:
               service_bytes = service_output.stat().st_size
               summary(
                   '### Nightshift external font extraction complete\\n'
-                  f'- Source skin: `{SOURCE_URL}` ({source_size:,} bytes; SHA-256 verified)\\n'
-                  f'- Font pack: `{FONT_URL}` ({font_size:,} bytes; SHA-256 verified)\\n'
+                  f'- Source skin: `{SOURCE_RELEASE_TAG}` / `{SOURCE_ASSET_NAME}` ({source_size:,} bytes; authenticated API + SHA-256 verified)\\n'
+                  f'- Font pack: `{FONT_RELEASE_TAG}` / `{FONT_ASSET_NAME}` ({font_size:,} bytes; authenticated API + SHA-256 verified)\\n'
+                  f'- Public installer URL: `{FONT_PUBLIC_URL}` (copied into GitHub Pages)\\n'
                   f'- Removed bundled fonts: `{len(bundled)}`\\n'
                   f'- Font installer: `{SERVICE_ID}` version `{SERVICE_VERSION}`\\n'
                   f'- Skin version: `{old_version}` → `{new_version_text}`\\n'

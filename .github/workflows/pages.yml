@@ -63,7 +63,6 @@ jobs:
 
           if [[ -z "${PAGES_TOKEN:-}" ]]; then
             MESSAGE="PAGES_ENABLEMENT_TOKEN was not supplied to the Pages workflow. Check the repository Actions secret and the caller workflow's secrets: inherit setting."
-
             echo "::error title=Missing Pages activation token::$MESSAGE"
             echo "$MESSAGE"
             write_summary "Missing token" "$MESSAGE"
@@ -72,24 +71,11 @@ jobs:
           fi
 
           echo "Checking whether GitHub currently exposes a Pages site..."
-
-          HTTP_STATUS="$(
-            curl \
-              --silent \
-              --show-error \
-              --max-time 25 \
-              --output "$RESPONSE_FILE" \
-              --write-out '%{http_code}' \
-              --header "Accept: application/vnd.github+json" \
-              --header "Authorization: Bearer ${PAGES_TOKEN}" \
-              --header "X-GitHub-Api-Version: 2022-11-28" \
-              "$API_URL"
-          )"
+          HTTP_STATUS="$(curl --silent --show-error --max-time 25 --output "$RESPONSE_FILE" --write-out '%{http_code}' --header "Accept: application/vnd.github+json" --header "Authorization: Bearer ${PAGES_TOKEN}" --header "X-GitHub-Api-Version: 2022-11-28" "$API_URL")"
           CURL_EXIT=$?
 
           if [[ "$CURL_EXIT" -ne 0 || "$HTTP_STATUS" == "000" ]]; then
             MESSAGE="The preflight request could not obtain an HTTP response. This may be a temporary network or GitHub API issue. The Configure GitHub Pages action will still make its own attempt."
-
             echo "::warning title=Pages API preflight unavailable::$MESSAGE"
             echo "$MESSAGE"
             write_summary "Request unavailable" "$MESSAGE"
@@ -98,58 +84,47 @@ jobs:
           fi
 
           echo "HTTP status: $HTTP_STATUS"
-
           case "$HTTP_STATUS" in
             200)
               MESSAGE="GitHub returned HTTP 200. An existing Pages site is visible to the supplied token. The workflow will continue with normal Pages configuration."
-
               echo "$MESSAGE"
               write_summary "200 OK — Pages site found" "$MESSAGE"
               ;;
-
             404)
               MESSAGE="GitHub returned HTTP 404 for the Get Pages site request. This means GitHub did not return an active Pages site for this repository and token. This can occur when Pages has not yet been enabled, or when Pages was previously disabled or deactivated. A 404 alone does not establish which situation applies, and GitHub can also return 404 when a resource is not accessible to the token.
 
           The next Configure GitHub Pages step will run with PAGES_ENABLEMENT_TOKEN and enablement: true. It will attempt to enable or initialize GitHub Pages.
 
           If activation succeeds, the workflow can continue to build and deploy the website. If activation fails, check that the PAT has access to this repository and the required Pages write permission."
-
               echo "::notice title=Pages site not currently returned — activation will be attempted::GitHub returned HTTP 404. Pages may not be enabled or may have been deactivated. The next step will attempt activation using the supplied PAT."
               echo
               echo "DETAILED DIAGNOSTIC:"
               echo "$MESSAGE"
               write_summary "404 Not Found — activation will be attempted" "$MESSAGE"
               ;;
-
             401)
               MESSAGE="GitHub returned HTTP 401 Unauthorized. The supplied Pages activation token was not accepted. Check whether PAGES_ENABLEMENT_TOKEN is present, valid, unexpired, and copied in full."
-
               echo "::error title=Pages activation token rejected::$MESSAGE"
               echo "$MESSAGE"
               write_summary "401 Unauthorized" "$MESSAGE"
               echo "::endgroup::"
               exit 1
               ;;
-
             403)
               MESSAGE="GitHub returned HTTP 403 Forbidden. The token was recognized but does not have sufficient access to this repository or the Pages API. Check the fine-grained PAT repository selection and Pages read/write permissions. The enablement operation requires Pages write access."
-
               echo "::error title=Pages activation permission denied::$MESSAGE"
               echo "$MESSAGE"
               write_summary "403 Forbidden" "$MESSAGE"
               echo "::endgroup::"
               exit 1
               ;;
-
             *)
               MESSAGE="GitHub returned an unexpected HTTP status ($HTTP_STATUS) when checking the Pages site. The Configure GitHub Pages action will make its own attempt. Check the action output for the final result."
-
               echo "::warning title=Unexpected Pages API response::$MESSAGE"
               echo "$MESSAGE"
               write_summary "$HTTP_STATUS — unexpected response" "$MESSAGE"
               ;;
           esac
-
           echo "::endgroup::"
 
       - name: Configure GitHub Pages
@@ -162,62 +137,50 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           rm -rf _site
           mkdir -p _site
-
-          # Copy the homepage and complete Now repository.
           cp index.html _site/index.html
           cp -a Now _site/Now
 
-          # Background audio location.
           AUDIO_DIR="Now/io.page.background.track"
           AUDIO_MANIFEST="$AUDIO_DIR/current.json"
-
-          # Confirm the audio manifest exists.
           test -s "$AUDIO_MANIFEST"
-
-          # Read the selected filename from current.json.
           AUDIO_FILE="$(python3 -c '
           import json
           import re
           import sys
-
           with open(sys.argv[1], encoding="utf-8") as f:
               manifest = json.load(f)
-
           filename = manifest.get("file")
-
-          if (
-              not isinstance(filename, str)
-              or not re.fullmatch(
-                  r"\d+_.+\.(mp3|opus|m4a)",
-                  filename,
-                  re.IGNORECASE
-              )
-          ):
-              raise SystemExit(
-                  "Invalid background audio filename in current.json"
-              )
-
+          if not isinstance(filename, str) or not re.fullmatch(r"\d+_.+\.(mp3|opus|m4a)", filename, re.IGNORECASE):
+              raise SystemExit("Invalid background audio filename in current.json")
           print(filename)
           ' "$AUDIO_MANIFEST")"
-
           echo "Selected background audio: $AUDIO_FILE"
-
-          # Confirm the selected audio exists in the source repository.
           test -s "$AUDIO_DIR/$AUDIO_FILE"
-
-          # Confirm the manifest and selected audio were copied to Pages staging.
           test -s "_site/$AUDIO_DIR/current.json"
           test -s "_site/$AUDIO_DIR/$AUDIO_FILE"
-
-          # Confirm normal website files exist.
           test -s _site/index.html
           test -s _site/Now/addons.xml
-
           echo "Verified background audio: $AUDIO_FILE"
           echo "Website files prepared successfully."
+
+      - name: Download verified NightShift font pack for public installer access
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p _site/assets/nightshift
+          curl --fail --silent --show-error --location --max-time 180 \
+            --header "Accept: application/octet-stream" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/FookYuuRai/LongTime/releases/assets/715997084 \
+            --output _site/assets/nightshift/fontpack_combined.zip
+          echo '99f85a7a2e1522446bc49bea0021df77367881f29a4b48e476c1b82a639643cc  _site/assets/nightshift/fontpack_combined.zip' | sha256sum --check --status
+          test -s _site/assets/nightshift/fontpack_combined.zip
+          echo 'Verified private Release font asset staged for public GitHub Pages delivery.'
 
       - name: Validate staged Pages payload
         run: python3 tools/validate_repo_files.py --root _site --areas Now
@@ -232,42 +195,34 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     permissions:
       actions: read
       pages: write
       id-token: write
-
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry_1.outputs.page_url || steps.deployment_retry_2.outputs.page_url }}
-
     steps:
       - name: Deploy website (attempt 1)
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
         continue-on-error: true
-
       - name: Wait before retry 1
         if: ${{ steps.deployment.outcome == 'failure' }}
         run: sleep 15
-
       - name: Deploy website (attempt 2)
         id: deployment_retry_1
         if: ${{ steps.deployment.outcome == 'failure' }}
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
         continue-on-error: true
-
       - name: Wait before retry 2
         if: ${{ steps.deployment_retry_1.outcome == 'failure' }}
         run: sleep 45
-
       - name: Deploy website (attempt 3)
         id: deployment_retry_2
         if: ${{ steps.deployment_retry_1.outcome == 'failure' }}
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
         continue-on-error: true
-
       - name: Fail if all deployment attempts failed
         if: >-
           ${{
