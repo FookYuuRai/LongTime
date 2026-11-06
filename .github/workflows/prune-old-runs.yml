@@ -16,7 +16,6 @@ on:
       - completed
     branches:
       - OnTheSide
-
   workflow_dispatch:
     inputs:
       workflow_file:
@@ -29,7 +28,6 @@ on:
           - pages.yml
           - update-action-pins.yml
           - pages.yml (delete all Pages workflow history)
-
       confirm_cleanup:
         description: Type DELETE to confirm removing workflow history
         required: true
@@ -41,11 +39,11 @@ on:
 
 permissions:
   actions: write
+  deployments: write
 
 concurrency:
   group: prune-old-workflow-runs
   cancel-in-progress: false
-
 jobs:
   prune:
     if: >-
@@ -57,9 +55,8 @@ jobs:
 
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
-      - name: Prune old workflow history
+      - name: Prune old workflow history and inactive deployments
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -69,7 +66,6 @@ jobs:
           PIPELINE_RUN: ${{ inputs.pipeline_run }}
           TARGET_BRANCH: OnTheSide
           CURRENT_RUN_ID: ${{ github.run_id }}
-
         run: |
           set -euo pipefail
 
@@ -83,7 +79,6 @@ jobs:
           const currentRunId = process.env.CURRENT_RUN_ID;
 
           const TIME_ZONE = "America/Chicago";
-
           const PAGES_WORKFLOW_PATH =
             ".github/workflows/pages.yml";
 
@@ -92,7 +87,6 @@ jobs:
 
           const SELF_WORKFLOW_PATH =
             ".github/workflows/prune-old-runs.yml";
-
           if (
             !repository ||
             !token ||
@@ -104,7 +98,6 @@ jobs:
               "Missing required repository, workflow, branch, token, or run ID."
             );
           }
-
           // Return YYYY-MM-DD in the requested IANA timezone.
           // Do not use toISOString().slice(0, 10) for local-date retention:
           // toISOString() always returns the UTC calendar date.
@@ -115,7 +108,6 @@ jobs:
               month: "2-digit",
               day: "2-digit"
             }).formatToParts(date);
-
             const values = Object.fromEntries(
               parts.map(part => [part.type, part.value])
             );
@@ -133,7 +125,6 @@ jobs:
             if (Number.isNaN(date.getTime())) {
               return null;
             }
-
             return dateInTimeZone(date);
           }
 
@@ -141,7 +132,6 @@ jobs:
           // Only completed runs whose Central Time date is earlier than
           // this cutoff date are eligible for deletion.
           const cutoffDate = dateInTimeZone(new Date());
-
           console.log(`Repository: ${repository}`);
           console.log(`Branch: ${branch}`);
           console.log(`Current cleanup run: ${currentRunId}`);
@@ -150,13 +140,14 @@ jobs:
           console.log(
             `Completed runs dated before ${cutoffDate} in ${TIME_ZONE} are eligible for deletion.`
           );
-
+          console.log(
+            `Deployments dated before ${cutoffDate} in ${TIME_ZONE} are eligible only when their latest status is inactive.`
+          );
           const headers = {
             Accept: "application/vnd.github+json",
             Authorization: `Bearer ${token}`,
             "X-GitHub-Api-Version": "2022-11-28"
           };
-
           async function githubApi(path, options = {}) {
             const response = await fetch(
               `https://api.github.com${path}`,
@@ -168,7 +159,6 @@ jobs:
                 }
               }
             );
-
             if (!response.ok) {
               throw new Error(
                 `GitHub API ${options.method || "GET"} ${path} failed: ` +
@@ -186,7 +176,6 @@ jobs:
 
           async function listWorkflows() {
             const workflows = [];
-
             for (let page = 1; page <= 10; page++) {
               const result = await githubApi(
                 `/repos/${repository}/actions/workflows?per_page=100&page=${page}`
@@ -203,7 +192,6 @@ jobs:
 
             return workflows;
           }
-
           async function findWorkflowIdByPath(path, label) {
             const workflows = await listWorkflows();
 
@@ -217,7 +205,6 @@ jobs:
                 `found ${matches.length}. No history was deleted for it.`
               );
             }
-
             const workflow = matches[0];
 
             console.log(
@@ -230,7 +217,6 @@ jobs:
 
           async function getWorkflowRuns(workflowIdOrFile, branchFilter) {
             const runs = [];
-
             // GitHub accepts a workflow ID or workflow filename.
             for (let page = 1; page <= 10; page++) {
               const parameters = new URLSearchParams({
@@ -241,7 +227,6 @@ jobs:
               if (branchFilter) {
                 parameters.set("branch", branchFilter);
               }
-
               const path =
                 `/repos/${repository}/actions/workflows/` +
                 `${encodeURIComponent(String(workflowIdOrFile))}/runs?${parameters}`;
@@ -258,7 +243,6 @@ jobs:
 
             return runs;
           }
-
           async function deleteCompletedRuns(
             runs,
             shouldDelete,
@@ -269,7 +253,6 @@ jobs:
             );
 
             const selected = completedRuns.filter(shouldDelete);
-
             const validDates = runs
               .map(run => ({
                 run,
@@ -279,7 +262,6 @@ jobs:
               .sort((a, b) =>
                 a.localDate.localeCompare(b.localDate)
               );
-
             console.log("");
             console.log(`--- ${label} ---`);
             console.log(`Runs returned by API: ${runs.length}`);
@@ -289,7 +271,6 @@ jobs:
             if (validDates.length > 0) {
               const oldest = validDates[0];
               const newest = validDates[validDates.length - 1];
-
               console.log(
                 `Oldest returned run: ${oldest.run.id}; ` +
                 `UTC=${oldest.run.created_at}; ` +
@@ -302,7 +283,6 @@ jobs:
                 `${TIME_ZONE}=${newest.localDate}`
               );
             }
-
             if (runs.length === 0) {
               console.log(
                 "No standalone workflow runs were returned for this workflow identifier and branch."
@@ -314,7 +294,6 @@ jobs:
 
             for (const run of selected) {
               const runDate = localRunDate(run);
-
               // Never delete the currently executing cleanup run.
               if (String(run.id) === String(currentRunId)) {
                 console.log(
@@ -330,7 +309,6 @@ jobs:
                 );
 
                 deleted++;
-
                 console.log(
                   `Deleted ${label} run ${run.id}: ` +
                   `UTC=${run.created_at}; ` +
@@ -344,7 +322,6 @@ jobs:
                   `Could not delete ${label} run ${run.id}: ${error.message}`
                 );
               }
-
               await new Promise(resolve =>
                 setTimeout(resolve, 150)
               );
@@ -360,7 +337,6 @@ jobs:
               );
             }
           }
-
           async function pruneBeforeDate(
             workflowIdOrFile,
             branchFilter,
@@ -375,7 +351,6 @@ jobs:
               runs,
               run => {
                 const runDate = localRunDate(run);
-
                 return (
                   runDate !== null &&
                   runDate < cutoffDate &&
@@ -385,7 +360,6 @@ jobs:
               label
             );
           }
-
           async function pruneAllPagesHistory() {
             // Resolve the Pages workflow dynamically instead of hard-coding
             // its workflow ID.
@@ -393,7 +367,6 @@ jobs:
               PAGES_WORKFLOW_PATH,
               "Publish GitHub Pages"
             );
-
             // No branch filter: include all completed runs returned for
             // this workflow across branches and dates.
             const runs = await getWorkflowRuns(
@@ -408,7 +381,6 @@ jobs:
               "all pages.yml workflow history"
             );
           }
-
           async function pruneOwnOlderRuns() {
             const ownWorkflowId = await findWorkflowIdByPath(
               SELF_WORKFLOW_PATH,
@@ -424,7 +396,6 @@ jobs:
               ownRuns,
               run => {
                 const runDate = localRunDate(run);
-
                 return (
                   String(run.id) !== String(currentRunId) &&
                   runDate !== null &&
@@ -435,26 +406,248 @@ jobs:
             );
           }
 
+          // Retrieve all deployments, retaining the original workflow's
+          // ten-page / 100-items-per-page pagination convention.
+          async function getAllDeployments() {
+            const deployments = [];
+
+            for (let page = 1; page <= 10; page++) {
+              const items = await githubApi(
+                `/repos/${repository}/deployments?per_page=100&page=${page}`
+              );
+
+              if (!Array.isArray(items)) {
+                throw new Error(
+                  `Unexpected deployments response on page ${page}.`
+                );
+              }
+
+              deployments.push(...items);
+
+              if (items.length < 100) {
+                break;
+              }
+            }
+
+            return deployments;
+          }
+
+          // GitHub returns deployment statuses newest-first.
+          // Read the first page and explicitly select the newest timestamp
+          // (using the status ID to break timestamp ties).
+          // A deployment with no status is not considered safe to delete.
+          async function getLatestDeploymentStatus(deploymentId) {
+            const statuses = await githubApi(
+              `/repos/${repository}/deployments/${encodeURIComponent(String(deploymentId))}/statuses?per_page=100&page=1`
+            );
+
+            if (!Array.isArray(statuses)) {
+              throw new Error(
+                `Unexpected status response for deployment ${deploymentId}.`
+              );
+            }
+
+            if (statuses.length === 0) {
+              return null;
+            }
+
+            statuses.sort((a, b) => {
+              const timeA = Date.parse(a.created_at || "");
+              const timeB = Date.parse(b.created_at || "");
+
+              if (
+                Number.isFinite(timeA) &&
+                Number.isFinite(timeB) &&
+                timeA !== timeB
+              ) {
+                return timeB - timeA;
+              }
+
+              return Number(b.id || 0) - Number(a.id || 0);
+            });
+
+            return statuses[0];
+          }
+
+          async function pruneOldInactiveDeployments() {
+            console.log("");
+            console.log("--- old inactive GitHub deployments ---");
+
+            const deployments = await getAllDeployments();
+
+            const validDates = deployments
+              .map(deployment => ({
+                deployment,
+                localDate: localRunDate(deployment)
+              }))
+              .filter(item => item.localDate !== null)
+              .sort((a, b) =>
+                a.localDate.localeCompare(b.localDate)
+              );
+
+            const oldDeployments = deployments.filter(deployment => {
+              const deploymentDate = localRunDate(deployment);
+
+              return (
+                deploymentDate !== null &&
+                deploymentDate < cutoffDate
+              );
+            });
+
+            console.log(`Deployments returned by API: ${deployments.length}`);
+            console.log(`Deployments dated before cutoff: ${oldDeployments.length}`);
+            console.log(`Deployments dated today or later: ${deployments.length - oldDeployments.length}`);
+
+            if (validDates.length > 0) {
+              const oldest = validDates[0];
+              const newest = validDates[validDates.length - 1];
+
+              console.log(
+                `Oldest deployment: ${oldest.deployment.id}; ` +
+                `UTC=${oldest.deployment.created_at}; ` +
+                `${TIME_ZONE}=${oldest.localDate}`
+              );
+
+              console.log(
+                `Newest deployment: ${newest.deployment.id}; ` +
+                `UTC=${newest.deployment.created_at}; ` +
+                `${TIME_ZONE}=${newest.localDate}`
+              );
+            }
+
+            if (deployments.length === 0) {
+              console.log("No deployments were returned by the API.");
+            }
+
+            let deleted = 0;
+            let keptNonInactive = 0;
+            let keptUnknown = 0;
+            let failed = 0;
+
+            for (const deployment of oldDeployments) {
+              const deploymentDate = localRunDate(deployment);
+              const deploymentId = deployment.id;
+
+              if (!deploymentId) {
+                keptUnknown++;
+
+                console.log(
+                  "Keeping old deployment without a readable ID; status cannot be verified."
+                );
+
+                continue;
+              }
+
+              let latestStatus;
+
+              try {
+                latestStatus = await getLatestDeploymentStatus(
+                  deploymentId
+                );
+              } catch (error) {
+                failed++;
+
+                console.error(
+                  `Could not verify latest status for deployment ${deploymentId}; keeping it: ${error.message}`
+                );
+
+                continue;
+              }
+
+              if (
+                !latestStatus ||
+                typeof latestStatus.state !== "string"
+              ) {
+                keptUnknown++;
+
+                console.log(
+                  `Keeping deployment ${deploymentId}: ` +
+                  `no readable latest status; ` +
+                  `UTC=${deployment.created_at}; ` +
+                  `${TIME_ZONE}=${deploymentDate}.`
+                );
+
+                continue;
+              }
+
+              const latestState = latestStatus.state.toLowerCase();
+
+              // Only an explicitly inactive latest status qualifies.
+              // Success, failure, error, queued, pending, in_progress,
+              // and unknown states are all retained.
+              if (latestState !== "inactive") {
+                keptNonInactive++;
+
+                console.log(
+                  `Keeping deployment ${deploymentId}: ` +
+                  `latest state=${latestState}; ` +
+                  `environment=${deployment.environment || "unknown"}; ` +
+                  `UTC=${deployment.created_at}; ` +
+                  `${TIME_ZONE}=${deploymentDate}.`
+                );
+
+                continue;
+              }
+
+              try {
+                await githubApi(
+                  `/repos/${repository}/deployments/${encodeURIComponent(String(deploymentId))}`,
+                  { method: "DELETE" }
+                );
+
+                deleted++;
+
+                console.log(
+                  `Deleted inactive deployment ${deploymentId}: ` +
+                  `environment=${deployment.environment || "unknown"}; ` +
+                  `UTC=${deployment.created_at}; ` +
+                  `${TIME_ZONE}=${deploymentDate}; ` +
+                  `latest status=${latestState}.`
+                );
+              } catch (error) {
+                failed++;
+
+                console.error(
+                  `Could not delete inactive deployment ${deploymentId}: ${error.message}`
+                );
+              }
+
+              await new Promise(resolve =>
+                setTimeout(resolve, 150)
+              );
+            }
+
+            console.log(
+              `Deployment cleanup: deleted ${deleted}; ` +
+              `kept non-inactive ${keptNonInactive}; ` +
+              `kept unknown ${keptUnknown}; ` +
+              `failed ${failed}.`
+            );
+
+            if (failed > 0) {
+              throw new Error(
+                `${failed} deployment status lookup(s) or deletion(s) failed.`
+              );
+            }
+          }
+
           async function main() {
             if (pipelineRun) {
               console.log(
                 "Pipeline cleanup: pruning old workflow history."
               );
-
               // These files are reusable workflow_call workflows in the
               // current pipeline. Their jobs appear inside pipeline runs;
               // they do not necessarily have separate run-history entries.
               console.log(
                 "Note: reusable workflow job history is contained in its parent pipeline run."
               );
-
               // Remove old GitHub Actions pin updater runs.
               await pruneBeforeDate(
                 "update-action-pins.yml",
                 branch,
                 "update-action-pins.yml"
               );
-
               // Remove old parent pipeline runs. This also removes their
               // nested reusable-workflow job history from the Actions UI.
               await pruneBeforeDate(
@@ -467,7 +660,6 @@ jobs:
               console.log(
                 `Automatic cleanup after successful workflow ${workflowRef}.`
               );
-
               await pruneBeforeDate(
                 workflowRef,
                 branch,
@@ -485,12 +677,16 @@ jobs:
               );
             }
 
+            // Remove only old deployments whose latest status is inactive.
+            // Today's deployments and every non-inactive/unknown state remain.
+            await pruneOldInactiveDeployments();
+
             // Keep today's cleanup run and remove only older completed
             // cleanup workflow runs.
             await pruneOwnOlderRuns();
 
             console.log(
-              `Workflow-history cleanup completed for cutoff ${cutoffDate} (${TIME_ZONE}).`
+              `Workflow-history and deployment cleanup completed for cutoff ${cutoffDate} (${TIME_ZONE}).`
             );
           }
 
