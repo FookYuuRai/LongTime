@@ -1,0 +1,526 @@
+name: Update Nightshift external font pack
+
+on:
+  workflow_call:
+    inputs:
+      source_skin_url:
+        description: Direct HTTPS URL of the original Nightshift skin ZIP stored as a GitHub Release asset
+        required: false
+        type: string
+        default: 'https://github.com/FookYuuRai/LongTime/releases/download/nightshift-skin-font-extraction-v1/skin.nightshift-1.3.75.zip'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-nightshift-font-pack
+  cancel-in-progress: false
+
+jobs:
+  update-nightshift-font-pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out OnTheSide
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: OnTheSide
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Extract fonts, add installer service, and package the smaller skin
+        id: update
+        shell: bash
+        env:
+          SOURCE_SKIN_URL: ${{ inputs.source_skin_url }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import shutil
+          import tempfile
+          import textwrap
+          import urllib.parse
+          import urllib.request
+          import zipfile
+          from pathlib import Path, PurePosixPath
+          from xml.etree import ElementTree as ET
+
+          SOURCE_URL = os.environ['SOURCE_SKIN_URL'].strip()
+          SOURCE_SHA256 = '8fe0debf851804a1b8fc7136fdfc07865907f70ade6d76e8ad9639b36c0ac3cc'
+          FONT_URL = 'https://github.com/FookYuuRai/LongTime/releases/download/nightshift-fonts-v1/fontpack_combined.zip'
+          FONT_SHA256 = '99f85a7a2e1522446bc49bea0021df77367881f29a4b48e476c1b82a639643cc'
+          SKIN_ID = 'skin.nightshift'
+          SERVICE_ID = 'service.nightshift.fontinstaller'
+          SERVICE_VERSION = None  # Set to the generated skin version below.
+          ROOT = SKIN_ID + '/'
+          FONT_PATTERN = re.compile(r'^NS_combined_.*\.ttf$', re.IGNORECASE)
+          EXPECTED_FONT_COUNT = 4
+          MAX_DOWNLOAD = 100 * 1024 * 1024
+
+          output_file = os.environ.get('GITHUB_OUTPUT')
+          if output_file:
+              with open(output_file, 'a', encoding='utf-8') as f:
+                  f.write('changed=false\n')
+
+          def summary(message):
+              print(message)
+              path = os.environ.get('GITHUB_STEP_SUMMARY')
+              if path:
+                  with open(path, 'a', encoding='utf-8') as f:
+                      f.write(message.rstrip() + '\n')
+
+          def valid_https(url):
+              parsed = urllib.parse.urlparse(url)
+              if parsed.scheme != 'https' or not parsed.netloc:
+                  raise SystemExit('Release asset URL must be a valid HTTPS URL.')
+
+          def download(url, destination, expected_sha):
+              valid_https(url)
+              digest = hashlib.sha256()
+              size = 0
+              request = urllib.request.Request(url, headers={'User-Agent': 'LongTime-Nightshift-Font-Updater'})
+              with urllib.request.urlopen(request, timeout=90) as response, open(destination, 'wb') as target:
+                  while True:
+                      block = response.read(1024 * 1024)
+                      if not block:
+                          break
+                      size += len(block)
+                      if size > MAX_DOWNLOAD:
+                          raise SystemExit('Downloaded archive exceeded the 100 MiB safety limit.')
+                      target.write(block)
+                      digest.update(block)
+              actual = digest.hexdigest()
+              if actual != expected_sha:
+                  raise SystemExit(f'SHA-256 mismatch for {url}: expected {expected_sha}, got {actual}')
+              return size
+
+          def junk(name):
+              parts = [p for p in name.replace('\\', '/').split('/') if p]
+              if not parts or any(p.startswith('.') or p in ('__pycache__', '__MACOSX') for p in parts):
+                  return True
+              base = parts[-1].lower()
+              return base.endswith(('.pyc', '.pyo')) or base in {'.ds_store', 'desktop.ini', 'ehthumbs.db', 'thumbs.db'}
+
+          def safe_name(name):
+              normalized = name.replace('\\', '/')
+              p = PurePosixPath(normalized)
+              if normalized.startswith('/') or any(part in ('', '.', '..') for part in normalized.split('/')):
+                  raise SystemExit(f'Unsafe ZIP path: {name}')
+              if p.is_absolute():
+                  raise SystemExit(f'Absolute ZIP path: {name}')
+              return normalized
+
+          def version_tuple(version):
+              match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)', version or '')
+              if not match:
+                  raise SystemExit(f'Unsupported Nightshift skin version: {version!r}')
+              return tuple(map(int, match.groups()))
+
+          def version_text(value):
+              return '.'.join(map(str, value))
+
+          def read_skin_archive(path):
+              with zipfile.ZipFile(path) as archive:
+                  bad = archive.testzip()
+                  if bad:
+                      raise SystemExit(f'Source skin ZIP failed CRC validation: {bad}')
+                  candidates = []
+                  names = set()
+                  for info in archive.infolist():
+                      if info.is_dir() or junk(info.filename):
+                          continue
+                      name = safe_name(info.filename)
+                      if name in names:
+                          raise SystemExit(f'Duplicate source ZIP entry: {name}')
+                      names.add(name)
+                      if name.endswith('/addon.xml'):
+                          try:
+                              root = ET.fromstring(archive.read(info))
+                          except ET.ParseError:
+                              continue
+                          if root.attrib.get('id') == SKIN_ID:
+                              candidates.append(name.rsplit('/', 1)[0] + '/')
+                  candidates = sorted(set(candidates))
+                  if len(candidates) != 1:
+                      raise SystemExit(f'Expected one {SKIN_ID}/addon.xml root in source ZIP; found: {candidates}')
+                  addon_root = candidates[0]
+                  files = {}
+                  for info in archive.infolist():
+                      if info.is_dir() or junk(info.filename):
+                          continue
+                      name = safe_name(info.filename)
+                      if name.startswith(addon_root):
+                          files[name] = archive.read(info)
+                  if addon_root + 'addon.xml' not in files:
+                      raise SystemExit('Source skin ZIP is missing addon.xml.')
+                  return addon_root, files
+
+          def skin_packages():
+              found = []
+              for path in Path('Later').glob('skin_nightshift-*.zip'):
+                  found.append(path)
+              for path in Path('Now', SKIN_ID).glob('skin.nightshift-*.zip'):
+                  found.append(path)
+              valid = []
+              for path in found:
+                  try:
+                      with zipfile.ZipFile(path) as z:
+                          xml_names = [n for n in z.namelist() if n.endswith('/addon.xml')]
+                          for xml_name in xml_names:
+                              root = ET.fromstring(z.read(xml_name))
+                              if root.attrib.get('id') == SKIN_ID:
+                                  valid.append((version_tuple(root.attrib.get('version')), path, xml_name.rsplit('/', 1)[0] + '/'))
+                                  break
+                  except (zipfile.BadZipFile, ET.ParseError):
+                      raise SystemExit(f'Existing skin package is unreadable: {path}')
+              return sorted(valid, key=lambda item: item[0])
+
+          def package_manifest(path, addon_root):
+              with zipfile.ZipFile(path) as z:
+                  name = addon_root + 'resources/nightshift_fontpack.json'
+                  if name not in z.namelist():
+                      return None
+                  try:
+                      return json.loads(z.read(name).decode('utf-8'))
+                  except Exception:
+                      return None
+
+          existing = skin_packages()
+          latest = existing[-1] if existing else None
+          if latest:
+              latest_version, latest_path, latest_root = latest
+              latest_manifest = package_manifest(latest_path, latest_root)
+              if latest_manifest and latest_manifest.get('font_sha256') == FONT_SHA256 and latest_manifest.get('source_sha256') == SOURCE_SHA256:
+                  summary('### Nightshift external font package check\nNo change: the latest repository skin already references the verified font pack and source release. The original source release asset is not needed for this no-op run.')
+                  raise SystemExit(0)
+          else:
+              latest_version = None
+
+          temp = Path(tempfile.mkdtemp(prefix='nightshift-font-extract-'))
+          source_zip = temp / 'source-skin.zip'
+          font_zip = temp / 'fontpack.zip'
+          try:
+              source_size = download(SOURCE_URL, source_zip, SOURCE_SHA256)
+              font_size = download(FONT_URL, font_zip, FONT_SHA256)
+              addon_root, files = read_skin_archive(source_zip)
+
+              # Locate exactly four bundled combined fonts and remove only those files.
+              bundled = [name for name in files if FONT_PATTERN.fullmatch(PurePosixPath(name).name)]
+              if len(bundled) != EXPECTED_FONT_COUNT:
+                  raise SystemExit(f'Expected exactly {EXPECTED_FONT_COUNT} bundled NS_combined_*.ttf files; found {len(bundled)}: {bundled}')
+              bundled_names = {PurePosixPath(name).name for name in bundled}
+              referenced_names = {
+                  font_name for font_name in bundled_names
+                  if any(font_name.encode('utf-8') in data for data in files.values())
+              }
+              if referenced_names != bundled_names:
+                  raise SystemExit('The source skin does not contain references to all four bundled font filenames.')
+              for name in bundled:
+                  del files[name]
+
+              # Extract only the matching font files from the separately published font archive.
+              font_files = {}
+              with zipfile.ZipFile(font_zip) as archive:
+                  bad = archive.testzip()
+                  if bad:
+                      raise SystemExit(f'Font pack ZIP failed CRC validation: {bad}')
+                  for info in archive.infolist():
+                      if info.is_dir() or junk(info.filename):
+                          continue
+                      name = safe_name(info.filename)
+                      base = PurePosixPath(name).name
+                      if FONT_PATTERN.fullmatch(base):
+                          if base in font_files:
+                              raise SystemExit(f'Duplicate font basename in font pack: {base}')
+                          data = archive.read(info)
+                          if not data.startswith(b'\x00\x01\x00\x00') and not data.startswith(b'OTTO'):
+                              raise SystemExit(f'Font file does not have a recognized TrueType/OpenType header: {base}')
+                          font_files[base] = data
+              if set(font_files) != bundled_names or len(font_files) != EXPECTED_FONT_COUNT:
+                  raise SystemExit('Font pack files do not exactly match the four font filenames referenced by the source skin.\nBundled: ' + ', '.join(sorted(bundled_names)) + '\nPack: ' + ', '.join(sorted(font_files)))
+
+              addon_xml_name = addon_root + 'addon.xml'
+              addon_root_xml = ET.fromstring(files[addon_xml_name])
+              if addon_root_xml.attrib.get('id') != SKIN_ID:
+                  raise SystemExit('Source addon.xml does not identify skin.nightshift.')
+              old_version = addon_root_xml.attrib.get('version')
+              old_tuple = version_tuple(old_version)
+              base_tuple = latest_version if latest_version and latest_version > old_tuple else old_tuple
+              new_version = (base_tuple[0], base_tuple[1], base_tuple[2] + 1)
+              new_version_text = version_text(new_version)
+              SERVICE_VERSION = new_version_text
+
+              addon_requires = addon_root_xml.find('requires')
+              if addon_requires is None:
+                  addon_requires = ET.Element('requires')
+                  addon_root_xml.insert(0, addon_requires)
+              existing_import = None
+              for imp in addon_requires.findall('import'):
+                  if imp.attrib.get('addon') == SERVICE_ID:
+                      existing_import = imp
+                      break
+              if existing_import is None:
+                  existing_import = ET.SubElement(addon_requires, 'import')
+              existing_import.attrib.clear()
+              existing_import.attrib.update({'addon': SERVICE_ID, 'version': SERVICE_VERSION})
+              addon_root_xml.attrib['version'] = new_version_text
+              ET.indent(addon_root_xml, space='  ')
+              files[addon_xml_name] = ET.tostring(addon_root_xml, encoding='utf-8', xml_declaration=True) + b'\n'
+
+              manifest = {
+                  'schema': 1,
+                  'skin_version': new_version_text,
+                  'source_release': 'nightshift-skin-font-extraction-v1',
+                  'source_sha256': SOURCE_SHA256,
+                  'font_release': 'nightshift-fonts-v1',
+                  'font_url': FONT_URL,
+                  'font_sha256': FONT_SHA256,
+                  'font_files': sorted(font_files),
+              }
+              manifest_name = addon_root + 'resources/nightshift_fontpack.json'
+              files[manifest_name] = (json.dumps(manifest, indent=2, sort_keys=True) + '\n').encode('utf-8')
+
+              # Build the companion service add-on. It downloads only from the pinned public release URL.
+              service_root = SERVICE_ID + '/'
+              service_addon_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+          <addon id="{SERVICE_ID}" name="NightShift Font Installer" version="{SERVICE_VERSION}" provider-name="NightShift">
+            <requires>
+              <import addon="xbmc.python" version="3.0.0" />
+            </requires>
+            <extension point="xbmc.service" library="service.py" start="startup" />
+            <extension point="xbmc.addon.metadata">
+              <summary>Downloads and installs the verified NightShift font pack.</summary>
+              <description>Installs the four external NightShift combined fonts from the official LongTime GitHub Release asset. No API keys or client IDs are used.</description>
+              <platform>all</platform>
+            </extension>
+          </addon>
+          """.encode('utf-8')
+              service_py = textwrap.dedent(f"""
+          # -*- coding: utf-8 -*-
+          # NightShift font installer service; downloads one pinned public GitHub Release asset.
+          import hashlib
+          import os
+          import tempfile
+          import time
+          import urllib.request
+          import zipfile
+          import xbmc
+          import xbmcaddon
+
+          ADDON_ID = '{SERVICE_ID}'
+          SKIN_ID = '{SKIN_ID}'
+          PACK_URL = '{FONT_URL}'
+          PACK_SHA256 = '{FONT_SHA256}'
+          FONT_NAMES = {sorted(font_files)!r}
+          MAX_PACK_BYTES = 100 * 1024 * 1024
+          LOG_PREFIX = '[NightShift Font Installer] '
+
+          def log(message, level=xbmc.LOGINFO):
+              xbmc.log(LOG_PREFIX + str(message), level)
+
+          def _download(path):
+              digest = hashlib.sha256()
+              size = 0
+              request = urllib.request.Request(PACK_URL, headers={{'User-Agent': 'NightShift-Font-Installer'}})
+              with urllib.request.urlopen(request, timeout=90) as response, open(path, 'wb') as target:
+                  while True:
+                      block = response.read(1024 * 1024)
+                      if not block:
+                          break
+                      size += len(block)
+                      if size > MAX_PACK_BYTES:
+                          raise RuntimeError('font archive exceeds safety size limit')
+                      target.write(block)
+                      digest.update(block)
+              if digest.hexdigest() != PACK_SHA256:
+                  raise RuntimeError('font pack SHA-256 verification failed')
+
+          def install():
+              skin = xbmcaddon.Addon(SKIN_ID)
+              skin_path = skin.getAddonInfo('path')
+              fonts_dir = os.path.join(skin_path, 'fonts')
+              os.makedirs(fonts_dir, exist_ok=True)
+              marker = os.path.join(fonts_dir, '.nightshift-fontpack.sha256')
+              if os.path.isfile(marker):
+                  try:
+                      with open(marker, 'r', encoding='ascii') as f:
+                          installed = f.read().strip()
+                      if installed == PACK_SHA256 and all(os.path.isfile(os.path.join(fonts_dir, name)) for name in FONT_NAMES):
+                          return False
+                  except Exception:
+                      pass
+
+              fd, archive_path = tempfile.mkstemp(prefix='nightshift-fonts-', suffix='.zip')
+              os.close(fd)
+              temp_dir = tempfile.mkdtemp(prefix='nightshift-fonts-')
+              try:
+                  _download(archive_path)
+                  with zipfile.ZipFile(archive_path, 'r') as archive:
+                      bad = archive.testzip()
+                      if bad:
+                          raise RuntimeError('font ZIP CRC check failed at ' + bad)
+                      found = {{}}
+                      for info in archive.infolist():
+                          if info.is_dir():
+                              continue
+                          name = info.filename.replace('\\\\', '/')
+                          parts = name.split('/')
+                          if name.startswith('/') or any(part in ('', '.', '..') for part in parts):
+                              raise RuntimeError('unsafe path in font archive')
+                          base = parts[-1]
+                          if base in FONT_NAMES:
+                              if base in found:
+                                  raise RuntimeError('duplicate font file: ' + base)
+                              data = archive.read(info)
+                              if not (data.startswith(b'\\x00\\x01\\x00\\x00') or data.startswith(b'OTTO')):
+                                  raise RuntimeError('invalid font header: ' + base)
+                              found[base] = data
+                  if set(found) != set(FONT_NAMES):
+                      raise RuntimeError('font pack is missing one or more expected font files')
+                  for name, data in found.items():
+                      target = os.path.join(temp_dir, name)
+                      with open(target, 'wb') as f:
+                          f.write(data)
+                  for name in FONT_NAMES:
+                      os.replace(os.path.join(temp_dir, name), os.path.join(fonts_dir, name))
+                  marker_tmp = marker + '.tmp'
+                  with open(marker_tmp, 'w', encoding='ascii') as f:
+                      f.write(PACK_SHA256 + '\\n')
+                  os.replace(marker_tmp, marker)
+                  log('Installed and verified all four external fonts.')
+                  return True
+              finally:
+                  try:
+                      os.remove(archive_path)
+                  except OSError:
+                      pass
+                  try:
+                      import shutil
+                      shutil.rmtree(temp_dir, ignore_errors=True)
+                  except Exception:
+                      pass
+
+          def main():
+              monitor = xbmc.Monitor()
+              while not monitor.abortRequested():
+                  try:
+                      if install():
+                          # Font files are now present; reload the active skin to load them.
+                          if xbmc.getSkinDir() == SKIN_ID:
+                              xbmc.executebuiltin('ReloadSkin')
+                          return
+                  except Exception as exc:
+                      log('Install attempt failed: ' + str(exc), xbmc.LOGERROR)
+                  # Retry on later intervals if networking was unavailable at startup.
+                  if monitor.waitForAbort(900):
+                      return
+
+          if __name__ == '__main__':
+              main()
+          """).encode('utf-8')
+
+              service_files = {
+                  service_root + 'addon.xml': service_addon_xml,
+                  service_root + 'service.py': service_py,
+              }
+
+              # Create the two add-on ZIPs with deterministic, clean entries.
+              skin_zip_name = f'skin_nightshift-{new_version_text}.zip'
+              service_zip_name = f'service_nightshift_fontinstaller-{new_version_text}.zip'
+              later = Path('Later')
+              later.mkdir(parents=True, exist_ok=True)
+              skin_output = later / skin_zip_name
+              service_output = later / service_zip_name
+              if skin_output.exists() or service_output.exists():
+                  raise SystemExit('Refusing to overwrite an existing generated ZIP in Later/.')
+
+              with zipfile.ZipFile(skin_output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+                  for name in sorted(files):
+                      z.writestr(name, files[name])
+              with zipfile.ZipFile(service_output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+                  for name in sorted(service_files):
+                      z.writestr(name, service_files[name])
+
+              # Validate package structure, versions, dependency, font removal, service Python syntax and CRC.
+              with zipfile.ZipFile(skin_output) as z:
+                  if z.testzip():
+                      raise SystemExit('Generated skin ZIP failed CRC validation.')
+                  skin_names = z.namelist()
+                  if any(junk(n) for n in skin_names):
+                      raise SystemExit('Generated skin ZIP contains hidden/cache/OS junk files.')
+                  if any(FONT_PATTERN.fullmatch(PurePosixPath(n).name) for n in skin_names):
+                      raise SystemExit('One or more combined fonts were not removed from the skin ZIP.')
+                  final_xml = ET.fromstring(z.read(addon_xml_name))
+                  if final_xml.attrib.get('version') != new_version_text:
+                      raise SystemExit('Generated skin ZIP has an incorrect version.')
+                  imports = [e for e in final_xml.findall('./requires/import') if e.attrib.get('addon') == SERVICE_ID and e.attrib.get('version') == SERVICE_VERSION]
+                  if len(imports) != 1:
+                      raise SystemExit('Generated skin ZIP does not have exactly one required font-installer dependency.')
+                  final_manifest = json.loads(z.read(manifest_name).decode('utf-8'))
+                  if final_manifest.get('font_sha256') != FONT_SHA256:
+                      raise SystemExit('Generated skin manifest has the wrong font pack SHA-256.')
+              with zipfile.ZipFile(service_output) as z:
+                  if z.testzip():
+                      raise SystemExit('Generated font installer ZIP failed CRC validation.')
+                  if any(junk(n) for n in z.namelist()):
+                      raise SystemExit('Generated font installer ZIP contains packaging junk.')
+                  service_xml = ET.fromstring(z.read(service_root + 'addon.xml'))
+                  if service_xml.attrib.get('id') != SERVICE_ID or service_xml.attrib.get('version') != SERVICE_VERSION:
+                      raise SystemExit('Generated font installer add-on metadata is invalid.')
+                  compile(z.read(service_root + 'service.py'), service_root + 'service.py', 'exec')
+
+              # Validate source and output details for the Actions summary.
+              skin_bytes = skin_output.stat().st_size
+              service_bytes = service_output.stat().st_size
+              summary(
+                  '### Nightshift external font extraction complete\\n'
+                  f'- Source skin: `{SOURCE_URL}` ({source_size:,} bytes; SHA-256 verified)\\n'
+                  f'- Font pack: `{FONT_URL}` ({font_size:,} bytes; SHA-256 verified)\\n'
+                  f'- Removed bundled fonts: `{len(bundled)}`\\n'
+                  f'- Font installer: `{SERVICE_ID}` version `{SERVICE_VERSION}`\\n'
+                  f'- Skin version: `{old_version}` → `{new_version_text}`\\n'
+                  f'- Generated skin ZIP: `{skin_output}` ({skin_bytes:,} bytes)\\n'
+                  f'- Generated installer ZIP: `{service_output}` ({service_bytes:,} bytes)\\n'
+                  '- Both ZIPs passed CRC, XML, dependency, archive-cleanliness and Python syntax checks.\\n'
+              )
+              if output_file:
+                  with open(output_file, 'a', encoding='utf-8') as f:
+                      f.write('changed=true\\n')
+                      f.write(f'skin_zip={skin_output}\\n')
+                      f.write(f'service_zip={service_output}\\n')
+          finally:
+              shutil.rmtree(temp, ignore_errors=True)
+          PY
+
+      - name: Validate generated Later payloads
+        if: steps.update.outputs.changed == 'true'
+        run: python3 tools/validate_repo_files.py --areas Later
+
+      - name: Commit the two generated add-on ZIPs
+        if: steps.update.outputs.changed == 'true'
+        shell: bash
+        env:
+          SKIN_ZIP: ${{ steps.update.outputs.skin_zip }}
+          SERVICE_ZIP: ${{ steps.update.outputs.service_zip }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$SKIN_ZIP" "$SERVICE_ZIP"
+          if git diff --cached --quiet; then
+            echo "No generated package changes to commit."
+            exit 0
+          fi
+          git commit -m "Externalize NightShift skin fonts"
+          # GITHUB_TOKEN pushes do not start another push-triggered workflow.
+          # The calling pipeline continues to the ambience update and repository build.
+          git push origin HEAD:OnTheSide
