@@ -69,10 +69,11 @@ jobs:
       id-token: write
 
   prune-history:
-    name: "5. Prune old workflow runs"
+    name: "5. Prune old workflow runs and inactive deployments"
     needs: publish-pages
     uses: ./.github/workflows/prune-old-runs.yml
     with:
       pipeline_run: true
     permissions:
       actions: write
+      deployments: write
