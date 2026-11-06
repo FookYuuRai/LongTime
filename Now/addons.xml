@@ -260,6 +260,17 @@
         <news lang="en_GB">v0.1.18 - Card style popup can be placed at the bottom or top; card images preserve their full aspect ratio and the card controls fit inside the panel. v0.1.17 - the card style setting says NIGHTSHIFT (it said Red Light). v0.1.16 - "Show what fingerprint.db holds" now opens a list of every show, its episodes, fingerprints and found segments, and the themes. v0.1.15 - Music and other background audio no longer start or reset the skip logic, and movies are ignored (episodes only: episode info or SxxEyy in the name; the "any long video" fallback is gone). Requests from other add-ons are ignored unless they are for an episode. v0.1.14 - New setting: end offset when NO end was found (credits / preview that run to the end of the video, counted from 10 s before the end). The end and credits end offsets now apply only to ends that were found. v0.1.13 - Fix: the end offsets (general and credits / outro) now also move the skip target of a credits or preview segment that has no end time of its own (it runs to the end of the video), which is when the log said the target was always 10 s before the end. v0.1.12 - Fix: offsets are now applied every time segments are read, so changing them works for episodes already looked up (before, the old offsets stayed baked in until the add-on restarted). v0.1.11 - New settings: separate start and end offsets for credits / outro segments (added on top of the general offsets). v0.1.10 - New settings: unselected button outline (faint / normal / strong) and card backdrop (transparent / light / dark). v0.1.9 - Skip buttons and cards now use the NIGHTSHIFT look: transparent, thin outline, neon border on the selected button (pill and card styles, 1080i and 720p). v0.1.8 - One zip for every device (64-bit ARM, 32-bit ARM, x86-64); on first start the add-on keeps the library of the device it runs on and deletes the others. v0.1.7 - The skip button hides after 12 s by default (never stays longer than 30 s). v0.1.6 - The card prefers the show fanart, then the thumbnail. v0.1.5 - The card shows the thumbnail and episode line the player supplies. v0.1.4 - The card style now copies the NIGHTSHIFT skip prompt (dimmed top, thumbnail, heading, episode line, round buttons) for every segment kind. v0.1.3 - Test popup works (settings action), visible button textures, card style with thumbnail, the skip button closes when another video starts, the extra skip-past-end seconds setting is gone (offsets replace it).</news>
     </extension>
 </addon>
+<addon id="service.nightshift.fontinstaller" name="NightShift Font Installer" version="1.3.76" provider-name="NightShift">
+  <requires>
+    <import addon="xbmc.python" version="3.0.0" />
+  </requires>
+  <extension point="xbmc.service" library="service.py" start="startup" />
+  <extension point="xbmc.addon.metadata">
+    <summary>Downloads and installs the verified NightShift font pack.</summary>
+    <description>Installs the four external NightShift combined fonts from the official LongTime GitHub Release asset. No API keys or client IDs are used.</description>
+    <platform>all</platform>
+  </extension>
+</addon>
 <addon id="service.nntp.stream" version="0.2.3" name="NNTP Stream" provider-name="nntp-project">
   <requires>
     <import addon="xbmc.python" version="3.0.1"/>
@@ -276,10 +287,13 @@
     <news>0.2.3 - the unpacked file name no longer keeps commas and similar characters (a comma split the PlayMedia arguments, so the file was not opened). 0.2.2 - releases with obfuscated or unquoted file names are now recognised (the real names are read from the first article of each big file); ZIP releases are recognised as packed; the "no video file" message lists the biggest files. 0.2.1 - unpacking now reads the whole release as ONE long file through vfs.nntp (rapidyenc decoder, connections shared by speed) when it is installed; the Python downloader is the fallback. 0.2.0 - new: unpack_to() downloads a packed release (stored RAR 2-5 / ZIP, multi-volume) and unpacks its video into a folder, so it plays from disk with no debrid service. 0.1.1 - fixes: the service no longer hangs when Kodi stops or updates it (it polled the GUI, which deadlocked), the empty servers setting no longer errors, the add-on shows under Program add-ons (opens its settings) as well as Services, and the fallback uses the running service for its local server. 0.1.0 - first version: STAT availability check, plan writer, Python fallback (HTTPS on 127.0.0.1), native vfs.nntp support.</news>
   </extension>
 </addon>
-<addon id="skin.nightshift" version="1.3.48" name="Nightshift" provider-name="Custom skin; based on Kodi Estuary">
+<addon id="skin.nightshift" version="1.3.76" name="Nightshift" provider-name="Custom skin; based on Kodi Estuary">
   <requires>
     <import addon="xbmc.gui" version="5.18.0" />
-  <import addon="script.skinshortcuts" version="3.0.4" /><import addon="script.skin.info.service" version="2.0.2~neon2" optional="true" /></requires>
+    <import addon="script.skinshortcuts" version="3.0.4" />
+    <import addon="script.skin.info.service" version="2.0.2~neon2" optional="true" />
+    <import addon="service.nightshift.fontinstaller" version="1.3.76" />
+  </requires>
   <extension point="xbmc.gui.skin" debugging="false">
     <res width="1920" height="1440" aspect="4:3" default="false" folder="xml" />
     <res width="1920" height="1280" aspect="3:2" default="false" folder="xml" />
@@ -296,7 +310,10 @@
     <platform>all</platform>
     <license>CC BY-SA 4.0; GPL-2.0-only</license>
     <source>https://github.com/xbmc/skin.estuary/</source>
-    <assets><icon>resources/icon.png</icon><fanart>resources/fanart.jpg</fanart></assets>
+    <assets>
+      <icon>resources/icon.png</icon>
+      <fanart>resources/fanart.jpg</fanart>
+    </assets>
   </extension>
 </addon>
 <addon id="vfs.nntp" version="0.1.11" name="NNTP Usenet VFS" provider-name="nntp-project">
