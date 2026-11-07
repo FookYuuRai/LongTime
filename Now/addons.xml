@@ -29,7 +29,7 @@
 2.4.2.200 - Added AniList-backed Public Anime Calendar with a persistent UTC today ±14-day SQLite snapshot, date rollover refresh, and manual Force Refresh actions; Public TV Calendar remains Simkl. Added persistent local TMDb episode-still random bags for Rings focus, per-episode no-repeat cycles, playback-age retention, selectable 50 MB–10 GB cache ceiling, automatic purge, and dedicated Purge All maintenance action. Check the Changelog in Tools &gt; Changelog &amp; Log Utils[/COLOR]</news>
     </extension>
 </addon>
-<addon id="plugin.video.tvdbhelper" name="TVDB Helper" version="0.3.2" provider-name="local">
+<addon id="plugin.video.tvdbhelper" name="TVDB Helper" version="0.3.3" provider-name="local">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="script.module.pycryptodome" version="3.4.3"/>
@@ -39,8 +39,12 @@
   </extension>
   <extension point="xbmc.addon.metadata">
     <summary lang="en_GB">Browse TheTVDB: search, aired / DVD / absolute order episode lists</summary>
-    <description lang="en_GB">Search TheTVDB and browse movies, shows, people and companies. The built-in TVDB credentials are encrypted using scrypt and AES-256-GCM. Enter the unlock password once per Kodi session. An optional subscriber PIN selects the PIN-enabled credential.</description>
+    <description lang="en_GB">Search TheTVDB and browse movies, shows, people and companies. The built-in TVDB credentials are encrypted using scrypt and AES-256-GCM. Unlock the built-in credentials from add-on settings; the password is never saved. An optional subscriber PIN selects the PIN-enabled credential.</description>
     <disclaimer lang="en_GB">Data provided by TheTVDB.com. Please consider subscribing at https://thetvdb.com/subscribe</disclaimer>
+    <news>0.3.3: Added Unlock and Lock buttons to add-on settings and a release changelog. Password entry now accepts punctuation and is never saved.
+0.3.2: Replaced custom credential obfuscation with scrypt and AES-256-GCM; removed persistent unlock-password storage.
+0.3.1: Added encrypted built-in TVDB credentials and expanded search to movies, people and companies.
+0.3.0: Initial TVDB v4 search and episode-order browser.</news>
     <platform>all</platform>
     <license>MIT</license>
   </extension>
