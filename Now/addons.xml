@@ -29,7 +29,7 @@
 2.4.2.200 - Added AniList-backed Public Anime Calendar with a persistent UTC today ±14-day SQLite snapshot, date rollover refresh, and manual Force Refresh actions; Public TV Calendar remains Simkl. Added persistent local TMDb episode-still random bags for Rings focus, per-episode no-repeat cycles, playback-age retention, selectable 50 MB–10 GB cache ceiling, automatic purge, and dedicated Purge All maintenance action. Check the Changelog in Tools &gt; Changelog &amp; Log Utils[/COLOR]</news>
     </extension>
 </addon>
-<addon id="plugin.video.tvdbhelper" name="TVDB Helper" version="0.3.6" provider-name="local">
+<addon id="plugin.video.tvdbhelper" name="TVDB Helper" version="0.3.7" provider-name="local">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="script.module.pycryptodome" version="3.4.3"/>
