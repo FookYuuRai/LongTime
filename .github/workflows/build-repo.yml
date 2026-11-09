@@ -29,9 +29,19 @@ jobs:
       - name: Validate source Now and Later payloads
         run: python3 tools/validate_repo_files.py --areas Now Later
 
+      # Preserve the currently published, validated ZIPs before make_repo.py
+      # replaces Now/. Oldies is created automatically when this step runs.
+      - name: Archive current releases and retain the last five per add-on
+        env:
+          ARCHIVE_RUN_ID: ${{ github.run_id }}
+        run: python3 tools/archive_releases.py --archive
+
       - name: Generate Kodi repository files using the GitHub Pages feed
         id: repo
         run: python3 tools/make_repo.py --base "https://fookyuurai.github.io/LongTime/Now/"
+
+      - name: Add Oldies link to the root Pages index
+        run: python3 tools/archive_releases.py --add-root-link
 
       - name: Validate generated Now and remaining Later payloads
         run: python3 tools/validate_repo_files.py --areas Now Later
@@ -55,7 +65,7 @@ jobs:
               COMMIT_MESSAGE="Update generated Kodi repository files"
             fi
 
-            printf '%s\n' "$COMMIT_MESSAGE" > "$RUNNER_TEMP/longtime-commit-message.txt"
+            printf '%s\\n' "$COMMIT_MESSAGE" > "$RUNNER_TEMP/longtime-commit-message.txt"
             git commit -F "$RUNNER_TEMP/longtime-commit-message.txt"
             git push origin HEAD:OnTheSide
           fi
