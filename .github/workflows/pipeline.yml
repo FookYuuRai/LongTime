@@ -78,7 +78,9 @@ jobs:
 
   update-ambience:
     name: "1. Update ambience audio pack"
-    needs: make-repository-public
+    needs:
+      - make-repository-public
+    if: ${{ always() && needs.make-repository-public.result == 'success' }}
     uses: ./.github/workflows/update-nightshift-ambience-pack.yml
     with:
       pack_url: ${{ inputs.pack_url || 'https://github.com/FookYuuRai/LongTime/releases/download/ambience-audio-v1/ambience-audio-opus96.zip' }}
@@ -87,14 +89,21 @@ jobs:
 
   build-repo:
     name: "2. Build repository"
-    needs: update-ambience
+    needs:
+      - make-repository-public
+      - update-ambience
+    if: ${{ always() && needs.make-repository-public.result == 'success' && needs.update-ambience.result == 'success' }}
     uses: ./.github/workflows/build-repo.yml
     permissions:
       contents: write
 
   publish-pages:
     name: "3. Publish GitHub Pages"
-    needs: build-repo
+    needs:
+      - make-repository-public
+      - update-ambience
+      - build-repo
+    if: ${{ always() && needs.make-repository-public.result == 'success' && needs.update-ambience.result == 'success' && needs.build-repo.result == 'success' }}
     uses: ./.github/workflows/pages.yml
     secrets: inherit
     permissions:
@@ -105,7 +114,12 @@ jobs:
 
   prune-history:
     name: "4. Prune old workflow runs and inactive deployments"
-    needs: publish-pages
+    needs:
+      - make-repository-public
+      - update-ambience
+      - build-repo
+      - publish-pages
+    if: ${{ always() && needs.make-repository-public.result == 'success' && needs.update-ambience.result == 'success' && needs.build-repo.result == 'success' && needs.publish-pages.result == 'success' }}
     uses: ./.github/workflows/prune-old-runs.yml
     with:
       pipeline_run: true
