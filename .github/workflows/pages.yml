@@ -141,6 +141,9 @@ jobs:
           mkdir -p _site
           cp index.html _site/index.html
           cp -a Now _site/Now
+          test -d Oldies
+          cp -a Oldies _site/Oldies
+          test -s _site/Oldies/index.html
 
           AUDIO_DIR="Now/io.page.background.track"
           AUDIO_MANIFEST="$AUDIO_DIR/current.json"
