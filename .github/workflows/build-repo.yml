@@ -26,12 +26,20 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Validate source Now and Later payloads
+      - name: Validate existing Now and Later payloads
         run: python3 tools/validate_repo_files.py --areas Now Later
 
-      # Preserve the currently published, validated ZIPs before make_repo.py
-      # replaces Now/. Oldies is created automatically when this step runs.
-      - name: Archive current releases and retain the last five per add-on
+      # Build the browser from its maintained source. make_repo.py publishes it
+      # alongside the other Later/ add-ons in the normal Kodi repository feed.
+      - name: Package LongTime Oldies Browser
+        run: python3 tools/package_oldies_browser.py --source tools/_source/plugin.program.longtime.oldies --output Later
+
+      - name: Validate staged Now and Later payloads
+        run: python3 tools/validate_repo_files.py --areas Now Later
+
+      # Archive only releases that will actually be superseded by a higher
+      # version queued in Later/. Oldies is created automatically.
+      - name: Archive superseded releases and retain the last five per add-on
         env:
           ARCHIVE_RUN_ID: ${{ github.run_id }}
         run: python3 tools/archive_releases.py --archive
@@ -44,7 +52,7 @@ jobs:
         run: python3 tools/archive_releases.py --add-root-link
 
       - name: Validate generated Now and remaining Later payloads
-        run: python3 tools/validate_repo_files.py --areas Now Later
+        run: python3 tools/validate_repo_files.py --areas Now Later Oldies
 
       - name: Commit generated files
         shell: bash

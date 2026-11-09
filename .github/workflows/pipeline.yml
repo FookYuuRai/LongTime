@@ -9,6 +9,8 @@ on:
       - 'Now/**'
       - 'index.html'
       - 'tools/make_repo.py'
+      - 'tools/archive_releases.py'
+      - 'tools/package_oldies_browser.py'
       - 'tools/validate_repo_files.py'
       - 'tools/_source/**'
       - '.github/workflows/**'
