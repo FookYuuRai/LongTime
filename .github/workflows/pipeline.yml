@@ -35,8 +35,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  make-repository-public:
+    name: "0. Ensure repository is public"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Change repository visibility to public
+        env:
+          GH_TOKEN: ${{ secrets.PAGES_ENABLEMENT_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::PAGES_ENABLEMENT_TOKEN is missing."
+            exit 1
+          fi
+
+          echo "Changing repository visibility to public..."
+          RESPONSE="$(gh api \
+            --method PATCH \
+            "repos/${GITHUB_REPOSITORY}" \
+            --input - <<'JSON'
+          {
+            "private": false
+          }
+          JSON
+          )"
+
+          VISIBILITY="$(printf '%s' "$RESPONSE" | jq -r '.visibility')"
+          IS_PRIVATE="$(printf '%s' "$RESPONSE" | jq -r '.private')"
+
+          if [[ "$VISIBILITY" != "public" || "$IS_PRIVATE" != "false" ]]; then
+            echo "::error::GitHub did not confirm that the repository is public."
+            printf '%s\n' "$RESPONSE" | jq '{visibility, private}'
+            exit 1
+          fi
+
+          echo "Repository visibility confirmed: public."
+
   update-ambience:
     name: "1. Update ambience audio pack"
+    needs: make-repository-public
     uses: ./.github/workflows/update-nightshift-ambience-pack.yml
     with:
       pack_url: ${{ inputs.pack_url || 'https://github.com/FookYuuRai/LongTime/releases/download/ambience-audio-v1/ambience-audio-opus96.zip' }}
