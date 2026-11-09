@@ -65,7 +65,7 @@ jobs:
               COMMIT_MESSAGE="Update generated Kodi repository files"
             fi
 
-            printf '%s\\n' "$COMMIT_MESSAGE" > "$RUNNER_TEMP/longtime-commit-message.txt"
+            printf '%s\n' "$COMMIT_MESSAGE" > "$RUNNER_TEMP/longtime-commit-message.txt"
             git commit -F "$RUNNER_TEMP/longtime-commit-message.txt"
             git push origin HEAD:OnTheSide
           fi
