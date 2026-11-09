@@ -146,7 +146,7 @@ def main() -> int:
         "--areas",
         nargs="+",
         default=["Now", "Later"],
-        choices=["Now", "Later"],
+        choices=["Now", "Later", "Oldies"],
         help="payload directories to validate (default: Now Later)",
     )
     args = parser.parse_args()
