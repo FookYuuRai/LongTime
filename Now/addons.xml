@@ -1,5 +1,34 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addons>
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.230">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1"/>
+        <import addon="script.module.pil" version="1.1.7"/>
+        <import addon="script.module.requests" version="2.19.1"/>
+        <import addon="service.nntp.stream" version="0.2.3" optional="true"/>
+    </requires>
+    <extension point="xbmc.python.pluginsource" library="resources/lib/nightshift.py">
+        <provides>video</provides>
+    </extension>
+    <extension point="xbmc.service" library="resources/lib/service.py"/>
+    <extension point="xbmc.python.module" library="resources/lib/"/>
+    <extension point="xbmc.addon.metadata">
+        <reuselanguageinvoker>true</reuselanguageinvoker>
+        <summary lang="en">[COLOR FF4696FF]NIGHTSHIFT[/COLOR]</summary>
+        <description lang="en">* AllDebrid, Offcloud, Premiumize, Real Debrid and TorBox
+* AIOStreams
+* EasyNews, NZB Indexers and Local Folders
+* MDBList, PunchPlay, Simkl, TMDb Lists, Trakt and WeTrakr</description>
+        <platform>all</platform>
+        <disclaimer lang="en">This add-on does not host any content and has no affiliation with the content providers</disclaimer>
+        <assets>
+            <icon>resources/media/addon_icons/icon.png</icon>
+            <fanart>resources/media/fanart.jpg</fanart>
+        </assets>
+        <news>2.4.2.226 - Removed the show-wide unwatched-count suffix from every Recently Watched episode row. TVDB / TMDb Episode Order rows now include the local air date in their visible label.
+2.4.2.200 - Added AniList-backed Public Anime Calendar with a persistent UTC today ±14-day SQLite snapshot, date rollover refresh, and manual Force Refresh actions; Public TV Calendar remains Simkl. Added persistent local TMDb episode-still random bags for Rings focus, per-episode no-repeat cycles, playback-age retention, selectable 50 MB–10 GB cache ceiling, automatic purge, and dedicated Purge All maintenance action. Check the Changelog in Tools &gt; Changelog &amp; Log Utils[/COLOR]</news>
+    </extension>
+</addon>
 <addon id="plugin.video.tvdbhelper" name="TVDB Helper" version="0.3.8" provider-name="local">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
