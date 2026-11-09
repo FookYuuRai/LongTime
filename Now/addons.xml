@@ -257,35 +257,6 @@
     <news>0.2.3 - the unpacked file name no longer keeps commas and similar characters (a comma split the PlayMedia arguments, so the file was not opened). 0.2.2 - releases with obfuscated or unquoted file names are now recognised (the real names are read from the first article of each big file); ZIP releases are recognised as packed; the "no video file" message lists the biggest files. 0.2.1 - unpacking now reads the whole release as ONE long file through vfs.nntp (rapidyenc decoder, connections shared by speed) when it is installed; the Python downloader is the fallback. 0.2.0 - new: unpack_to() downloads a packed release (stored RAR 2-5 / ZIP, multi-volume) and unpacks its video into a folder, so it plays from disk with no debrid service. 0.1.1 - fixes: the service no longer hangs when Kodi stops or updates it (it polled the GUI, which deadlocked), the empty servers setting no longer errors, the add-on shows under Program add-ons (opens its settings) as well as Services, and the fallback uses the running service for its local server. 0.1.0 - first version: STAT availability check, plan writer, Python fallback (HTTPS on 127.0.0.1), native vfs.nntp support.</news>
   </extension>
 </addon>
-<addon id="skin.nightshift" version="1.3.76" name="Nightshift" provider-name="Custom skin; based on Kodi Estuary">
-  <requires>
-    <import addon="xbmc.gui" version="5.18.0" />
-    <import addon="script.skinshortcuts" version="3.0.4" />
-    <import addon="script.skin.info.service" version="2.0.2~neon2" optional="true" />
-    <import addon="service.nightshift.fontinstaller" version="1.3.76" />
-  </requires>
-  <extension point="xbmc.gui.skin" debugging="false">
-    <res width="1920" height="1440" aspect="4:3" default="false" folder="xml" />
-    <res width="1920" height="1280" aspect="3:2" default="false" folder="xml" />
-    <res width="1920" height="1200" aspect="16:10" default="false" folder="xml" />
-    <res width="2040" height="1080" aspect="17:9" default="false" folder="xml" />
-    <res width="1920" height="1080" aspect="16:9" default="true" folder="xml" />
-    <res width="2560" height="1080" aspect="21:9" default="false" folder="xml" />
-    <res width="2338" height="1080" aspect="19.5:9" default="false" folder="xml" />
-    <res width="2160" height="1080" aspect="18:9" default="false" folder="xml" />
-  </extension>
-  <extension point="xbmc.addon.metadata">
-    <summary lang="en_GB">Nightshift-style neon home screen for Kodi 22.</summary>
-    <description lang="en_GB">Nightshift skin. Uses Skin Shortcuts for an editable home menu and Skin Info Service for enhanced media information, alongside the Nightshift split-panel design, CRT scanlines, and ambience companion service.</description>
-    <platform>all</platform>
-    <license>CC BY-SA 4.0; GPL-2.0-only</license>
-    <source>https://github.com/xbmc/skin.estuary/</source>
-    <assets>
-      <icon>resources/icon.png</icon>
-      <fanart>resources/fanart.jpg</fanart>
-    </assets>
-  </extension>
-</addon>
 <addon id="vfs.nntp" version="0.1.11" name="NNTP Usenet VFS" provider-name="nntp-project">
   <requires>
     <import addon="kodi.binary.global.main" minversion="2.0.3" version="2.0.3"/>
