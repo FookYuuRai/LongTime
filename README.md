@@ -1,14 +1,14 @@
 # LongTime
 
-LongTime builds and publishes a Kodi add-on repository and its GitHub Pages website. Add-on ZIPs are submitted through `Later/`; validated, generated repository files are published under `Now/`. Previous published releases are retained in `Oldies/` so users can recover or roll back an update.
+LongTime builds and publishes a Kodi add-on repository and its GitHub Pages website. Add-on ZIPs are submitted through `Later/`; validated, generated repository files are published under `Now/`. Previous published releases are retained in `Oldies/` so users can browse and restore older versions.
 
 ## Repository layout
 
 - `Later/`: incoming add-on ZIPs awaiting publication.
 - `Now/`: generated Kodi repository, current published add-on ZIPs, and website assets.
-- `Oldies/`: automatically maintained archive of the five newest previous releases per add-on.
-- `tools/make_repo.py`: builds the Kodi repository and prepares a descriptive commit message from add-on changelog changes.
-- `tools/archive_releases.py`: archives and verifies previous published ZIPs, applies the five-release retention limit, and generates the Oldies browsing pages.
+- `Oldies/`: automatically maintained archive of the five newest previous releases per add-on. Original ZIPs are preserved.
+- `tools/make_repo.py`: builds the current Kodi repository and prepares a descriptive commit message from add-on changelog changes.
+- `tools/archive_releases.py`: archives and verifies previous published ZIPs, applies the five-release retention limit, and generates Oldies website pages.
 - `tools/validate_repo_files.py`: read-only validation of repository payloads.
 - `.github/workflows/`: automation for repository builds, Pages deployment, and supported add-on update tasks.
 - `index.html`: GitHub Pages homepage.
@@ -21,33 +21,53 @@ Generated files in `Now/` and `Oldies/` should be produced by the repository bui
 2. The ZIP must contain one top-level directory named exactly after the add-on ID, with `addon.xml` inside it. Do not include unrelated files outside that directory.
 3. The build validates the incoming payloads and currently published files.
 4. Before generating the replacement repository, the build copies valid currently published add-on ZIPs from `Now/` into `Oldies/`. Each copied ZIP is checked for integrity and its add-on ID/version are verified.
-5. The build runs `tools/make_repo.py`, updates the repository metadata, and validates the generated repository and remaining payloads.
+5. The build runs `tools/make_repo.py`, updates the current repository metadata, and validates the generated repository and remaining payloads.
 6. The build commits and pushes generated changes to `OnTheSide`.
 7. The separate Pages stage publishes the homepage, `Now/`, and `Oldies/` after the repository build succeeds.
 
 A new release must have a higher version in `addon.xml` than the currently published release. Version ordering follows Kodi-compatible comparison rules. For example, `1.1.1~beta2` is older than `1.1.1`, which is older than `1.1.2`.
 
-## Previous releases and rollback
+## Previous releases: Oldies
 
 GitHub Actions creates `Oldies/` automatically when the archive step runs; you do not need to create the folder yourself.
 
 - Archived ZIPs are stored under `Oldies/<addon-id>/`.
 - The five newest distinct archived versions are retained for each add-on.
 - The current release remains in `Now/`; `Oldies/` contains previous releases only.
-- The same version is not archived repeatedly on every pipeline run.
-- A copied ZIP is integrity-checked and its `addon.xml` identity/version are verified before it is retained.
-- The original ZIP contents and internal top-level add-on folder are preserved; the archive process does not repackage the add-on.
+- The same add-on version is not archived repeatedly on every pipeline run.
+- Each copied ZIP is integrity-checked and its `addon.xml` identity/version are verified.
+- The original ZIP is copied byte-for-byte; its internal top-level add-on folder and contents are not renamed or repackaged.
 
-The public archive is browsable from the GitHub Pages homepage through the **Oldies** link:
+Public web archive:
 
 https://FookYuuRai.github.io/LongTime/Oldies/
 
-### Roll back an add-on
+### Browsing and installing a specific archived version in Kodi
 
-1. Open the Oldies page and select the add-on ID.
-2. Download the version you want to restore.
-3. Upload that ZIP into `Later/` using the normal add-on ZIP structure.
-4. A rollback is still processed by the normal version-validation rules. If the selected archived version is older than the currently published version, the normal build may reject it as a downgrade. In that case, a maintainer must deliberately perform the rollback by restoring the archived ZIP to `Now/` and regenerating the repository metadata, or use a controlled rollback procedure that explicitly permits the downgrade. Do not simply rename an old ZIP to a newer version; that would misrepresent its actual add-on version.
+**The intended Oldies experience is a Kodi ZIP browser:** choose an add-on, see its retained archived versions, select the exact version, and install that original ZIP. This is different from a standard Kodi repository feed.
+
+A standard Kodi repository index is designed to advertise one selected version of an add-on ID at a time. Listing several historical ZIPs with the same add-on ID in an ordinary `addons.xml` feed does not reliably create a version picker in Kodi. Therefore, Oldies must not be presented as though the existing repository metadata already provides this feature.
+
+**Implementation status: the archive and website listing are present; the in-Kodi Oldies ZIP-browser add-on is not yet included in this repository.** Until that companion add-on is added, users can browse the Oldies website and manually install a selected archive ZIP through Kodi's **Install from zip file** interface. The direct in-Kodi browse/select/install workflow is not available yet.
+
+When the companion browser is implemented, the intended Kodi workflow will be:
+
+1. Open the LongTime Oldies browser from Kodi's Add-ons area.
+2. Choose an add-on ID.
+3. Browse its available archived versions (up to five).
+4. Select the exact version to install.
+5. Review Kodi's install confirmation and allow Kodi to install the selected ZIP.
+
+The browser must download the selected original ZIP from `Oldies/<addon-id>/` and pass it to Kodi's normal ZIP-install flow. It must not silently rename the add-on, alter the ZIP, change the add-on ID, or replace the current `Now/` repository metadata. Kodi's normal dependency and compatibility checks still apply; an older version may not work with the installed Kodi version or other add-ons.
+
+### Manual rollback before the browser exists
+
+1. Open the Oldies website: https://FookYuuRai.github.io/LongTime/Oldies/
+2. Open the required add-on's folder and download the exact archived ZIP.
+3. In Kodi, use **Add-ons → Install from zip file** and select the downloaded ZIP. Enable **Unknown sources** if Kodi requests it.
+4. Confirm the installation and check the installed version in the add-on information screen.
+
+A rollback submitted through `Later/` is still subject to the normal version-validation rules. If the archived version is older than the currently published version, the normal build may reject it as a downgrade. A maintainer must use a deliberate rollback procedure that explicitly permits the downgrade and regenerates the repository metadata. Do not rename an old ZIP to a newer version; that would misrepresent its actual add-on version.
 
 ## Generated commit messages
 
@@ -59,7 +79,7 @@ The automation uses the `github-actions[bot]` Git author identity for generated 
 
 ## Payload validation
 
-`tools/validate_repo_files.py` is a read-only validator used by the build and Pages workflows. It checks loose files and ZIP archives under `Now/` and `Later/`, including the staged website payload.
+`tools/validate_repo_files.py` is a read-only validator used by the build and Pages workflows. It checks loose files and ZIP archives under the selected payload areas.
 
 Checks include:
 
