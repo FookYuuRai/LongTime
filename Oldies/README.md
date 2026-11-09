@@ -1,20 +1,23 @@
-# Oldies
+# Oldies — previous LongTime releases
 
-This folder is created and maintained automatically by GitHub Actions.
+This folder is created and maintained automatically by the LongTime build.
 
-- Previous published add-on ZIPs are archived under `Oldies/<addon-id>/`.
-- The five newest distinct archived revisions are retained for each add-on.
-- The current release remains in `Now/`.
-- Original ZIPs are copied unchanged, including their internal add-on folder names.
+- Only releases superseded by a higher version queued in `Later/` are added to the archive.
+- Up to five previous distinct releases are retained per add-on.
+- The current release remains in `Now/` and is not shown as an Oldies version.
+- Original ZIP contents and the internal top-level add-on folder are preserved unchanged.
+- `catalog.json` is the version list used by the Kodi LongTime Oldies Browser. It includes each original filename, size, archived date, and SHA-256 checksum.
 
-## Kodi browsing and installation
+On the first build with this logic, any Oldies ZIP whose version matches the active ZIP in `Now/` is removed because it is not a previous release. The uploaded repository snapshot does not contain Git history, so genuine older ZIPs must already be present as separate files to appear immediately. Otherwise, this archive fills as future releases supersede the active versions. Do not rename a current ZIP to make it appear historical.
 
-The intended Oldies experience is a Kodi ZIP browser: select an add-on, browse up to five archived versions, and install the exact version selected.
+## Browse and install from Kodi
 
-This is not an ordinary Kodi repository feed. A normal repository index does not provide a reliable picker for several versions of the same add-on ID. The in-Kodi ZIP-browser companion add-on has not yet been added, so the workflow described above is not available inside Kodi yet.
+1. Update the LongTime repository and install **LongTime Oldies Browser** from the Programs category.
+2. Open the browser from Kodi's Programs add-ons.
+3. Select an add-on, then select the exact archived version.
+4. The browser downloads the original ZIP and checks its size, SHA-256, archive integrity, add-on ID, and version.
+5. The first time only, Kodi asks you to restart once after the verified ZIP is staged. This is needed because Kodi loads File Manager sources at startup. After restarting, reopen the browser and accept the prompt to open the native **Install from ZIP** window. Select `LongTime Oldies Archive`, then the staged ZIP. On later installs, the existing source is already loaded and no restart is needed.
 
-Until that companion add-on is implemented, use the public archive website to browse and download a version, then select the ZIP through Kodi's **Add-ons → Install from zip file** interface:
+Kodi's native ZIP dialog does not accept a file path as a command argument. The browser therefore maintains one dedicated File Manager source pointing at its private package folder; it stages only the version you selected. This keeps installation inside Kodi's supported installer instead of copying files directly into Kodi's add-on directory.
 
-https://FookYuuRai.github.io/LongTime/Oldies/
-
-Do not rename or repackage an archived ZIP. Kodi's normal dependency and compatibility checks still apply when installing it.
+Kodi 22 automatically pins a ZIP-installed add-on version when it is older than the latest compatible version available from installed repositories. That prevents the newer version in `Now/` from automatically replacing the rollback version. To return to the current release, install the current version from the LongTime repository.

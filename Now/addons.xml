@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addons>
+<addon id="plugin.program.longtime.oldies" name="LongTime Oldies Browser" version="1.0.0" provider-name="LongTime">
+    <requires>
+        <import addon="xbmc.python" version="3.0.1" />
+    </requires>
+    <extension point="xbmc.python.pluginsource" library="default.py">
+        <provides>executable</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="en_GB">Browse and install retained LongTime add-on releases</summary>
+        <description lang="en_GB">Browse archived LongTime add-on versions inside Kodi. Select a release to verify and download its original ZIP, then use Kodi's native Install from ZIP flow.</description>
+        <platform>all</platform>
+        <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
+    </extension>
+</addon>
 <addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.230">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
