@@ -38,13 +38,16 @@ concurrency:
 
 jobs:
   make-repository-public:
-    name: "0. Ensure repository is public"
+    name: "0. Temporarily enable public visibility"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
+    outputs:
+      was_private: ${{ steps.visibility.outputs.was_private }}
     steps:
-      - name: Change repository visibility to public
+      - name: Record original visibility and enable public access for this run
+        id: visibility
         env:
           GH_TOKEN: ${{ secrets.PAGES_ENABLEMENT_TOKEN }}
         shell: bash
@@ -56,7 +59,15 @@ jobs:
             exit 1
           fi
 
-          echo "Changing repository visibility to public..."
+          ORIGINAL_PRIVATE="$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.private')"
+          echo "was_private=${ORIGINAL_PRIVATE}" >> "$GITHUB_OUTPUT"
+
+          if [[ "$ORIGINAL_PRIVATE" == "false" ]]; then
+            echo "Repository was already public; leaving its visibility unchanged."
+            exit 0
+          fi
+
+          echo "Repository was private. Enabling public visibility for this workflow run..."
           RESPONSE="$(gh api \
             --method PATCH \
             "repos/${GITHUB_REPOSITORY}" \
@@ -76,7 +87,7 @@ jobs:
             exit 1
           fi
 
-          echo "Repository visibility confirmed: public."
+          echo "Temporary public visibility confirmed."
 
   update-ambience:
     name: "1. Update ambience audio pack"
@@ -128,3 +139,49 @@ jobs:
     permissions:
       actions: write
       deployments: write
+
+  restore-repository-visibility:
+    name: "5. Restore original repository visibility"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      - make-repository-public
+      - update-ambience
+      - build-repo
+      - publish-pages
+      - prune-history
+    if: ${{ always() && needs.make-repository-public.outputs.was_private == 'true' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Restore private visibility when repository was private before this run
+        env:
+          GH_TOKEN: ${{ secrets.PAGES_ENABLEMENT_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::PAGES_ENABLEMENT_TOKEN is missing; cannot restore original visibility."
+            exit 1
+          fi
+
+          echo "Restoring repository to private visibility..."
+          RESPONSE="$(gh api \
+            --method PATCH \
+            "repos/${GITHUB_REPOSITORY}" \
+            --input - <<'JSON'
+          {
+            "private": true
+          }
+          JSON
+          )"
+
+          IS_PRIVATE="$(printf '%s' "$RESPONSE" | jq -r '.private')"
+          if [[ "$IS_PRIVATE" != "true" ]]; then
+            echo "::error::GitHub did not confirm restoration to private visibility."
+            printf '%s\n' "$RESPONSE" | jq '{visibility, private}'
+            exit 1
+          fi
+
+          echo "Original private visibility successfully restored."
