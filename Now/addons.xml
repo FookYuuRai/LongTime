@@ -261,7 +261,7 @@
     <platform>all</platform>
   </extension>
 </addon>
-<addon id="service.nntp.stream" version="0.2.3" name="NNTP Stream" provider-name="nntp-project">
+<addon id="service.nntp.stream" version="0.2.4" name="NNTP Stream" provider-name="nntp-project">
   <requires>
     <import addon="xbmc.python" version="3.0.1"/>
   </requires>

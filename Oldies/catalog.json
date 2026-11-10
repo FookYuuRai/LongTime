@@ -1,5 +1,20 @@
 {
-  "addons": [],
+  "addons": [
+    {
+      "id": "service.nntp.stream",
+      "name": "NNTP Stream",
+      "releases": [
+        {
+          "archived_at": "2026-11-10T04:25:40Z",
+          "bytes": 37827,
+          "filename": "20261110T042540Z_42755723555_service.nntp.stream-0.2.3.zip",
+          "name": "NNTP Stream",
+          "sha256": "c5126cd7e9f287cbdf8f51ee336919da4fd2581c876243778e6fed3569ae0c2b",
+          "version": "0.2.3"
+        }
+      ]
+    }
+  ],
   "retention_per_addon": 5,
   "schema_version": 1
 }
