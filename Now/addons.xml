@@ -67,7 +67,7 @@
     <license>MIT</license>
   </extension>
 </addon>
-<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.14" provider-name="local">
+<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.16" provider-name="local">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -85,6 +85,7 @@
     <assets>
       <icon>icon.png</icon>
     </assets>
+      <news>1.5.15: Manage add-ons dialog, episode-order list, settings help, changelog.</news>
   </extension>
 </addon>
 <addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.4.19" provider-name="Custom">
