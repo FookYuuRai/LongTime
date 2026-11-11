@@ -1,6 +1,34 @@
 {
   "addons": [
     {
+      "id": "plugin.video.nightshift",
+      "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
+      "releases": [
+        {
+          "archived_at": "2026-11-11T12:58:25Z",
+          "bytes": 23140778,
+          "filename": "20261111T125825Z_43024826309_plugin.video.nightshift-2.4.2.230.zip",
+          "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
+          "sha256": "e66c37935f755244e9e5b058ffe805d8221c048b3dfa1c64177e2784e91db686",
+          "version": "2.4.2.230"
+        }
+      ]
+    },
+    {
+      "id": "plugin.video.watchvault",
+      "name": "WatchVault",
+      "releases": [
+        {
+          "archived_at": "2026-11-11T12:58:25Z",
+          "bytes": 30026,
+          "filename": "20261111T125825Z_43024826309_plugin.video.watchvault-1.2.0.zip",
+          "name": "WatchVault",
+          "sha256": "f184be42acf56b9f823c7d1b5c31f56f7dab14eefe929e4ad3753846ebd776fb",
+          "version": "1.2.0"
+        }
+      ]
+    },
+    {
       "id": "service.nntp.stream",
       "name": "NNTP Stream",
       "releases": [

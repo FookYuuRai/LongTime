@@ -14,12 +14,13 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.230">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.237">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
         <import addon="script.module.requests" version="2.19.1"/>
         <import addon="service.nntp.stream" version="0.2.3" optional="true"/>
+        <import addon="plugin.video.watchvault" version="1.5.2" optional="true"/>
     </requires>
     <extension point="xbmc.python.pluginsource" library="resources/lib/nightshift.py">
         <provides>video</provides>
@@ -66,7 +67,7 @@
     <license>MIT</license>
   </extension>
 </addon>
-<addon id="plugin.video.watchvault" name="WatchVault" version="1.2.0" provider-name="local">
+<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.14" provider-name="local">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -78,7 +79,7 @@
   <extension point="xbmc.addon.metadata">
     <summary lang="en_GB">Local watch history shared between your video add-ons</summary>
     <description lang="en_GB">WatchVault keeps your watched shows (by TVDB id, season and episode) and movies in a local database, with no Trakt / Simkl / MDBList account. Add the video add-ons you use and they can read and write the same history through a tiny helper, so updating or wiping an add-on never loses your watch history. Export and import as JSON or as a database file. A text field accepts a TVDB series id; after you confirm, saved episode entries for that id are purged and the full TVDB episode list is marked watched.</description>
-    <disclaimer lang="en_GB">Stores data locally only. Optional TVDB lookups happen only if you enter your own TVDB API key.</disclaimer>
+    <disclaimer lang="en_GB">Stores watch history locally. Optional TVDB lookups happen only if you enter your own TVDB API key. Optional anime datasets download only while their settings are on, and a failed download keeps the previous copy.</disclaimer>
     <platform>all</platform>
     <license>MIT</license>
     <assets>
