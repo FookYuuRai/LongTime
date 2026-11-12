@@ -67,6 +67,27 @@
     <license>MIT</license>
   </extension>
 </addon>
+<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.20" provider-name="local">
+  <requires>
+    <import addon="xbmc.python" version="3.0.0"/>
+  </requires>
+  <extension point="xbmc.python.pluginsource" library="default.py">
+    <provides>video</provides>
+  </extension>
+  <extension point="xbmc.service" library="service.py" start="startup"/>
+  <extension point="xbmc.python.module" library="resources/lib"/>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en_GB">Local watch history shared between your video add-ons</summary>
+    <description lang="en_GB">WatchVault keeps your watched shows (by TVDB id, season and episode) and movies in a local database, with no Trakt / Simkl / MDBList account. Add the video add-ons you use and they can read and write the same history through a tiny helper, so updating or wiping an add-on never loses your watch history. Export and import as JSON or as a database file. A text field accepts a TVDB series id; after you confirm, saved episode entries for that id are purged and the full TVDB episode list is marked watched.</description>
+    <disclaimer lang="en_GB">Stores watch history locally. Optional TVDB lookups happen only if you enter your own TVDB API key. Optional anime datasets download only while their settings are on, and a failed download keeps the previous copy.</disclaimer>
+    <platform>all</platform>
+    <license>MIT</license>
+    <assets>
+      <icon>icon.png</icon>
+    </assets>
+      <news>1.5.15: Manage add-ons dialog, episode-order list, settings help, changelog.</news>
+  </extension>
+</addon>
 <addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.4.19" provider-name="Custom">
   <requires><import addon="xbmc.python" version="3.0.1"/></requires>
   <extension point="xbmc.service" library="service.py" start="startup"/>
