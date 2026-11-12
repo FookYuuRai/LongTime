@@ -19,6 +19,14 @@
       "name": "WatchVault",
       "releases": [
         {
+          "archived_at": "2026-11-12T00:23:51Z",
+          "bytes": 68559,
+          "filename": "20261112T002351Z_43126839879_plugin.video.watchvault-1.5.17.zip",
+          "name": "WatchVault",
+          "sha256": "25045bd803f409ebe10c04721122c31d1146bb914f151b463698936fe341212e",
+          "version": "1.5.17"
+        },
+        {
           "archived_at": "2026-11-12T00:01:59Z",
           "bytes": 67715,
           "filename": "20261112T000159Z_43124165962_plugin.video.watchvault-1.5.16.zip",
