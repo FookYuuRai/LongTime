@@ -67,7 +67,7 @@
     <license>MIT</license>
   </extension>
 </addon>
-<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.18" provider-name="local">
+<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.19" provider-name="local">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
