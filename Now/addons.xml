@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.241">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.242">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -39,7 +39,8 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.2.241 - Autoplay next episode now searches the services live when the stored results have no match, for every service (Easynews, TorBox, NZB ...), not only the cloud and NZB screens. Results that finish after the list opens (a slow NZB search) are added to the open list. The NZB wait now covers its query budget and health check.
+        <news>2.4.2.242 - TorBox: every reference to the external IP lookup has been removed; links resolve without it.
+2.4.2.241 - Autoplay next episode now searches the services live when the stored results have no match, for every service (Easynews, TorBox, NZB ...), not only the cloud and NZB screens. Results that finish after the list opens (a slow NZB search) are added to the open list. The NZB wait now covers its query budget and health check.
 2.4.2.240 - TVDB Episode Orders (Aired, DVD, Absolute ...) right click menus now show Extras, Options, Play Options, source shortcuts, External Scrapers Settings and Theme Song. Episode-name matching no longer accepts other parts (Part 3 for Part 2, Part 1, Zero for Hero). Episodes played from an order also accept the aired (TVDB) numbering, so NZBs named that way are no longer dropped. TorBox no longer makes an external IP lookup for each link.
 2.4.2.239 - Fixes a wrong pick from 2.4.2.238: a named special no longer matches a file only because its number matches.
 2.4.2.226 - Removed the show-wide unwatched-count suffix from every Recently Watched episode row. TVDB / TMDb Episode Order rows now include the local air date in their visible label.
