@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.239">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.240">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -39,7 +39,9 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.2.226 - Removed the show-wide unwatched-count suffix from every Recently Watched episode row. TVDB / TMDb Episode Order rows now include the local air date in their visible label.
+        <news>2.4.2.240 - TVDB Episode Orders (Aired, DVD, Absolute ...) right click menus now show Extras, Options, Play Options, source shortcuts, External Scrapers Settings and Theme Song. Episode-name matching no longer accepts other parts (Part 3 for Part 2, Part 1, Zero for Hero). Episodes played from an order also accept the aired (TVDB) numbering, so NZBs named that way are no longer dropped. TorBox no longer makes an external IP lookup for each link.
+2.4.2.239 - Fixes a wrong pick from 2.4.2.238: a named special no longer matches a file only because its number matches.
+2.4.2.226 - Removed the show-wide unwatched-count suffix from every Recently Watched episode row. TVDB / TMDb Episode Order rows now include the local air date in their visible label.
 2.4.2.200 - Added AniList-backed Public Anime Calendar with a persistent UTC today ±14-day SQLite snapshot, date rollover refresh, and manual Force Refresh actions; Public TV Calendar remains Simkl. Added persistent local TMDb episode-still random bags for Rings focus, per-episode no-repeat cycles, playback-age retention, selectable 50 MB–10 GB cache ceiling, automatic purge, and dedicated Purge All maintenance action. Check the Changelog in Tools &gt; Changelog &amp; Log Utils[/COLOR]</news>
     </extension>
 </addon>
@@ -251,7 +253,7 @@
         <news lang="en_GB">v0.1.18 - Card style popup can be placed at the bottom or top; card images preserve their full aspect ratio and the card controls fit inside the panel. v0.1.17 - the card style setting says NIGHTSHIFT (it said Red Light). v0.1.16 - "Show what fingerprint.db holds" now opens a list of every show, its episodes, fingerprints and found segments, and the themes. v0.1.15 - Music and other background audio no longer start or reset the skip logic, and movies are ignored (episodes only: episode info or SxxEyy in the name; the "any long video" fallback is gone). Requests from other add-ons are ignored unless they are for an episode. v0.1.14 - New setting: end offset when NO end was found (credits / preview that run to the end of the video, counted from 10 s before the end). The end and credits end offsets now apply only to ends that were found. v0.1.13 - Fix: the end offsets (general and credits / outro) now also move the skip target of a credits or preview segment that has no end time of its own (it runs to the end of the video), which is when the log said the target was always 10 s before the end. v0.1.12 - Fix: offsets are now applied every time segments are read, so changing them works for episodes already looked up (before, the old offsets stayed baked in until the add-on restarted). v0.1.11 - New settings: separate start and end offsets for credits / outro segments (added on top of the general offsets). v0.1.10 - New settings: unselected button outline (faint / normal / strong) and card backdrop (transparent / light / dark). v0.1.9 - Skip buttons and cards now use the NIGHTSHIFT look: transparent, thin outline, neon border on the selected button (pill and card styles, 1080i and 720p). v0.1.8 - One zip for every device (64-bit ARM, 32-bit ARM, x86-64); on first start the add-on keeps the library of the device it runs on and deletes the others. v0.1.7 - The skip button hides after 12 s by default (never stays longer than 30 s). v0.1.6 - The card prefers the show fanart, then the thumbnail. v0.1.5 - The card shows the thumbnail and episode line the player supplies. v0.1.4 - The card style now copies the NIGHTSHIFT skip prompt (dimmed top, thumbnail, heading, episode line, round buttons) for every segment kind. v0.1.3 - Test popup works (settings action), visible button textures, card style with thumbnail, the skip button closes when another video starts, the extra skip-past-end seconds setting is gone (offsets replace it).</news>
     </extension>
 </addon>
-<addon id="service.nightshift.fontinstaller" name="NightShift Font Installer" version="1.3.77" provider-name="NightShift">
+<addon id="service.nightshift.fontinstaller" name="NightShift Font Installer" version="1.3.78" provider-name="NightShift">
   <requires>
     <import addon="xbmc.python" version="3.0.0" />
   </requires>
