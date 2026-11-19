@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.251">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.252">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -39,7 +39,8 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.2.251 - Calendar no longer waits for MyAnimeList posters: they load in the background and show on the next open.
+        <news>2.4.2.252 - Stills no longer preload while searching or typing. Jikan timeout 15s, background only.
+2.4.2.251 - Calendar no longer waits for MyAnimeList posters: they load in the background and show on the next open.
 2.4.2.250 - Calendar AniList-only rows stay in the saved listing. Jikan poster results are logged.
 2.4.2.249 - Calendar posters for AniList-only shows come from MyAnimeList (Jikan) when available.
 2.4.2.248 - Anime calendar: season entries resolve through AniList relations so backgrounds return. Unmatched rows use the AniList banner.
