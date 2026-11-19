@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.273">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.274">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -39,7 +39,7 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.273 - Search: each TMDb endpoint (movie, TV, anime, people, collections, keywords) tries its own header profiles, and suggestions fall back to /search/multi only after all of them are refused. People and collections show their backdrops on row focus. The default calendar picture is hidden while a backdrop shows, and the keyboard keys and text box use the Menu Transparency blue tint, hidden with the keys when the suggestions open.</news>
+        <news>2.4.3.274 - Search suggestions show up to 50 titles, from up to three pages of each TMDb endpoint, and send far fewer requests to TMDb (one warmed session per header profile, paced, paused for a minute after a rate limit). People show their photo beside the list on row focus. The search keyboard is black, with a TMDb backdrop drawn over it when one shows.</news>
     </extension>
 </addon>
 <addon id="plugin.video.tvdbhelper" name="TVDB Helper" version="0.3.8" provider-name="local">
