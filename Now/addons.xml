@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.246">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.247">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -39,7 +39,8 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.2.246 - Public Anime Calendar lists every AniList show, including shows with no TMDb match (shown from AniList data, not playable yet).
+        <news>2.4.2.247 - Anime calendar matching fixed for Season, Part and Cour titles. Stricter matches so the wrong show no longer supplies backgrounds.
+2.4.2.246 - Public Anime Calendar lists every AniList show, including shows with no TMDb match (shown from AniList data, not playable yet).
 2.4.2.245 - TV Years and Decades sort newest to oldest. Anime calendar matches more shows through TVDb.
 2.4.2.244 - Anime Years and Decades sort newest to oldest. Public Anime Calendar has no item cap by default. More AniList shows match to TMDb.
 2.4.2.243 - Public Anime Calendar rows show the exact AniList air time in local time. Episode Orders (Aired Order) show the air time for anime episodes not out yet.
