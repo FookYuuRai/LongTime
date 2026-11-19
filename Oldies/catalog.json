@@ -117,6 +117,14 @@
       "name": "Nightshift",
       "releases": [
         {
+          "archived_at": "2026-11-19T03:26:28Z",
+          "bytes": 12834714,
+          "filename": "20261119T032628Z_44451297654_skin.nightshift-1.3.78.zip",
+          "name": "Nightshift",
+          "sha256": "db9ac8bdb48fbe8f22bc4c284696bb68c4dccd6025bf3338ba1688a86c45d2c8",
+          "version": "1.3.78"
+        },
+        {
           "archived_at": "2026-11-19T01:59:59Z",
           "bytes": 12834472,
           "filename": "20261119T015959Z_44440898268_skin.nightshift-1.3.77.zip",
