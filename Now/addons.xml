@@ -318,7 +318,7 @@
     <news>0.2.3 - the unpacked file name no longer keeps commas and similar characters (a comma split the PlayMedia arguments, so the file was not opened). 0.2.2 - releases with obfuscated or unquoted file names are now recognised (the real names are read from the first article of each big file); ZIP releases are recognised as packed; the "no video file" message lists the biggest files. 0.2.1 - unpacking now reads the whole release as ONE long file through vfs.nntp (rapidyenc decoder, connections shared by speed) when it is installed; the Python downloader is the fallback. 0.2.0 - new: unpack_to() downloads a packed release (stored RAR 2-5 / ZIP, multi-volume) and unpacks its video into a folder, so it plays from disk with no debrid service. 0.1.1 - fixes: the service no longer hangs when Kodi stops or updates it (it polled the GUI, which deadlocked), the empty servers setting no longer errors, the add-on shows under Program add-ons (opens its settings) as well as Services, and the fallback uses the running service for its local server. 0.1.0 - first version: STAT availability check, plan writer, Python fallback (HTTPS on 127.0.0.1), native vfs.nntp support.</news>
   </extension>
 </addon>
-<addon id="skin.nightshift" version="1.3.81" name="Nightshift" provider-name="Custom skin; based on Kodi Estuary">
+<addon id="skin.nightshift" version="1.3.82" name="Nightshift" provider-name="Custom skin; based on Kodi Estuary">
   <requires>
     <import addon="xbmc.gui" version="5.18.0" />
   <import addon="script.skinshortcuts" version="3.0.4" />
@@ -341,7 +341,8 @@
     <license>CC BY-SA 4.0; GPL-2.0-only</license>
     <source>https://github.com/xbmc/skin.estuary/</source>
     <assets><icon>resources/icon.png</icon><fanart>resources/fanart.jpg</fanart></assets>
-      <news>1.3.81: Keyboard autocompletion now uses plugin.program.autocompletion.next 2.2.0 (renamed to avoid conflicting with the official Kodi add-on). script.module.autocompletion is no longer needed.
+      <news>1.3.82: Keyboard autocompletion timer runs for the whole time the keyboard is open and refreshes the suggestions list every 5 seconds.
+      1.3.81: Keyboard autocompletion now uses plugin.program.autocompletion.next 2.2.0 (renamed to avoid conflicting with the official Kodi add-on). script.module.autocompletion is no longer needed.
       1.3.80: Keyboard autocompletion now requires the autocompletion plugin 2.2.0 (library merged into it).
       1.3.79: Keyboard autocompletion queries every 5 seconds while the text changes (only when it changed).
       1.3.78: Keyboard autocompletion list now appears when text is typed (it was always hidden). Needs script.module.autocompletion and plugin.program.autocompletion enabled.
