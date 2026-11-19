@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.267">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.268">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -39,7 +39,7 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.267 - Search keyboard, suggestions and results use the combined ring font and the skin's ring colours (blue, black, purple). Search: results view with TMDb backdrops; moving up into suggestions shows results; Back returns to the keyboard; stills and themes stay off on the search screen until a show is opened. Search keyboard uses the skin's selected fontset (font37 keys, font27 list and bottom bar) instead of the always-combined ring font.
+        <news>2.4.3.268 - Search results use the Left List Extended Double Row (Rings) layout from the skin, with the calendar background; keyboard is translucent, no white card. Search keyboard, suggestions and results use the combined ring font and the skin's ring colours (blue, black, purple). Search: results view with TMDb backdrops; moving up into suggestions shows results; Back returns to the keyboard; stills and themes stay off on the search screen until a show is opened. Search keyboard uses the skin's selected fontset (font37 keys, font27 list and bottom bar) instead of the always-combined ring font.
 2.4.3.264 - Search keyboard: shorter layout, neon key focus, and a three-row suggestion list that scrolls.
 2.4.3.263 - Keyboard suggestions probe TMDb header sets and log ACCEPTED or REJECTED for each, then use the first that works.
 2.4.3.262 - Search keyboard now uses the skin keyboard values: ns_card panel, theme focus buttons, skin fonts and title colour.
