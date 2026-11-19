@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.257">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.258">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -39,7 +39,8 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.257 - Search keyboard follows the skin (transparency, colours, neon outlines). Suggestions use your TMDb API key.
+        <news>2.4.3.258 - Search keyboard uses QWERTY order. Suggestions use TMDb website search (no API key), with browser-style requests.
+2.4.3.257 - Search keyboard follows the skin (transparency, colours, neon outlines). Suggestions use your TMDb API key.
 2.4.3.256 - Search keyboard: arrow keys now move between keys (every key has explicit neighbours), added Caps Lock. Keyboard fixed: own control IDs (no clash with the home menu), full screen width, Shift and Symbols keys. Nightshift neon search keyboard with live suggestions as you type (TMDb website search, no API key). Selecting a suggestion fills the search box; falls back to Kodi's keyboard if needed. Autocompletion add-on no longer required.
         2.4.2.252 - Stills no longer preload while searching or typing. Jikan timeout 15s, background only.
 2.4.2.251 - Calendar no longer waits for MyAnimeList posters: they load in the background and show on the next open.
