@@ -1,31 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addons>
-<addon id="plugin.program.autocompletion.next" name="AutoCompletion for virtual keyboard" version="2.2.0" provider-name="Philipp Temminghoff (phil65), sualfred, xulek, finkleandeinhorn">
-    <requires>
-        <import addon="xbmc.python" version="3.0.0" />
-        <import addon="script.module.requests" version="2.9.1"/>
-    </requires>
-    <extension point="xbmc.python.script" library="default.py">
-        <provides>executable</provides>
-    </extension>
-    <extension point="xbmc.python.pluginsource" library="plugin.py" />
-
-    <extension point="xbmc.addon.metadata">
-        <summary lang="en_GB">AutoCompletion for the virtual keyboard (needs skin support)</summary>
-        <description lang="en_GB">AutoCompletion for the virtual keyboard (needs skin support)</description>
-        <summary lang="es_ES">Autocompletar para el teclado virtual (necesita soporte de skin)</summary>
-        <description lang="es_ES">Autocompletar para el teclado virtual (necesita soporte de skin)</description>
-        <platform>all</platform>
-        <license>GPL-2.0-or-later</license>
-        <source>https://github.com/finkleandeinhorn/script.module.autocompletion</source>
-        <assets>
-            <icon>resources/icon.png</icon>
-            <screenshot>resources/screenshot-01.jpg</screenshot>
-            <screenshot>resources/screenshot-02.jpg</screenshot>
-            <screenshot>resources/screenshot-03.jpg</screenshot>
-        </assets>
-    </extension>
-</addon>
 <addon id="plugin.program.longtime.oldies" name="LongTime Oldies Browser" version="1.0.0" provider-name="LongTime">
     <requires>
         <import addon="xbmc.python" version="3.0.1" />
@@ -40,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.253">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.254">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -65,7 +39,7 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.253 - Nightshift neon search keyboard with live suggestions as you type (TMDb website search, no API key). Selecting a suggestion fills the search box; falls back to Kodi's keyboard if needed. Autocompletion add-on no longer required.
+        <news>2.4.3.254 - Nightshift neon search keyboard with live suggestions as you type (TMDb website search, no API key). Selecting a suggestion fills the search box; falls back to Kodi's keyboard if needed. Autocompletion add-on no longer required.
         2.4.2.252 - Stills no longer preload while searching or typing. Jikan timeout 15s, background only.
 2.4.2.251 - Calendar no longer waits for MyAnimeList posters: they load in the background and show on the next open.
 2.4.2.250 - Calendar AniList-only rows stay in the saved listing. Jikan poster results are logged.
@@ -319,11 +293,10 @@
     <news>0.2.3 - the unpacked file name no longer keeps commas and similar characters (a comma split the PlayMedia arguments, so the file was not opened). 0.2.2 - releases with obfuscated or unquoted file names are now recognised (the real names are read from the first article of each big file); ZIP releases are recognised as packed; the "no video file" message lists the biggest files. 0.2.1 - unpacking now reads the whole release as ONE long file through vfs.nntp (rapidyenc decoder, connections shared by speed) when it is installed; the Python downloader is the fallback. 0.2.0 - new: unpack_to() downloads a packed release (stored RAR 2-5 / ZIP, multi-volume) and unpacks its video into a folder, so it plays from disk with no debrid service. 0.1.1 - fixes: the service no longer hangs when Kodi stops or updates it (it polled the GUI, which deadlocked), the empty servers setting no longer errors, the add-on shows under Program add-ons (opens its settings) as well as Services, and the fallback uses the running service for its local server. 0.1.0 - first version: STAT availability check, plan writer, Python fallback (HTTPS on 127.0.0.1), native vfs.nntp support.</news>
   </extension>
 </addon>
-<addon id="skin.nightshift" version="1.3.85" name="Nightshift" provider-name="Custom skin; based on Kodi Estuary">
+<addon id="skin.nightshift" version="1.3.86" name="Nightshift" provider-name="Custom skin; based on Kodi Estuary">
   <requires>
     <import addon="xbmc.gui" version="5.18.0" />
   <import addon="script.skinshortcuts" version="3.0.4" />
-    <import addon="plugin.program.autocompletion.next" version="2.2.0" />
   <import addon="service.nightshift.fontinstaller" version="1.3.77" /><import addon="script.skin.info.service" version="2.0.2~neon2" optional="true" /></requires>
   <extension point="xbmc.gui.skin" debugging="false">
     <res width="1920" height="1440" aspect="4:3" default="false" folder="xml" />
@@ -342,7 +315,8 @@
     <license>CC BY-SA 4.0; GPL-2.0-only</license>
     <source>https://github.com/xbmc/skin.estuary/</source>
     <assets><icon>resources/icon.png</icon><fanart>resources/fanart.jpg</fanart></assets>
-      <news>1.3.85: Debug notification now also shows list visibility and the exact list URL (debugging only).
+      <news>1.3.86: Removed the old keyboard autocomplete from the skin (timers, debug toggle, panel). Search suggestions now come from the Nightshift keyboard in the plugin. The autocompletion add-on is no longer required.
+      1.3.85: Debug notification now also shows list visibility and the exact list URL (debugging only).
       1.3.84: Fixed the autocomplete timers being ignored by Kodi (they used the wrong tag). Autocomplete debug toggle label fixed.
       1.3.83: Debug toggle 'Autocomplete Debug Notifications' in Features settings. When on, shows a notification every 5 seconds while the keyboard is open.
       1.3.82: Keyboard autocompletion timer runs for the whole time the keyboard is open and refreshes the suggestions list every 5 seconds.
