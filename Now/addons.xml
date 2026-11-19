@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.243">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.2.246">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -39,7 +39,10 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.2.243 - Public Anime Calendar rows show the exact AniList air time in local time. Episode Orders (Aired Order) show the air time for anime episodes not out yet.
+        <news>2.4.2.246 - Public Anime Calendar lists every AniList show, including shows with no TMDb match (shown from AniList data, not playable yet).
+2.4.2.245 - TV Years and Decades sort newest to oldest. Anime calendar matches more shows through TVDb.
+2.4.2.244 - Anime Years and Decades sort newest to oldest. Public Anime Calendar has no item cap by default. More AniList shows match to TMDb.
+2.4.2.243 - Public Anime Calendar rows show the exact AniList air time in local time. Episode Orders (Aired Order) show the air time for anime episodes not out yet.
 2.4.2.242 - TorBox: every reference to the external IP lookup has been removed; links resolve without it.
 2.4.2.241 - Autoplay next episode now searches the services live when the stored results have no match, for every service (Easynews, TorBox, NZB ...), not only the cloud and NZB screens. Results that finish after the list opens (a slow NZB search) are added to the open list. The NZB wait now covers its query budget and health check.
 2.4.2.240 - TVDB Episode Orders (Aired, DVD, Absolute ...) right click menus now show Extras, Options, Play Options, source shortcuts, External Scrapers Settings and Theme Song. Episode-name matching no longer accepts other parts (Part 3 for Part 2, Part 1, Zero for Hero). Episodes played from an order also accept the aired (TVDB) numbering, so NZBs named that way are no longer dropped. TorBox no longer makes an external IP lookup for each link.
