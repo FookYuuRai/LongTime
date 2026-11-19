@@ -65,7 +65,8 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.2.252 - Stills no longer preload while searching or typing. Jikan timeout 15s, background only.
+        <news>2.4.3.253 - Nightshift neon search keyboard with live suggestions as you type (TMDb website search, no API key). Selecting a suggestion fills the search box; falls back to Kodi's keyboard if needed. Autocompletion add-on no longer required.
+        2.4.2.252 - Stills no longer preload while searching or typing. Jikan timeout 15s, background only.
 2.4.2.251 - Calendar no longer waits for MyAnimeList posters: they load in the background and show on the next open.
 2.4.2.250 - Calendar AniList-only rows stay in the saved listing. Jikan poster results are logged.
 2.4.2.249 - Calendar posters for AniList-only shows come from MyAnimeList (Jikan) when available.
