@@ -145,6 +145,14 @@
       "name": "Nightshift",
       "releases": [
         {
+          "archived_at": "2026-11-19T05:51:30Z",
+          "bytes": 12873806,
+          "filename": "20261119T055130Z_44467867967_skin.nightshift-1.3.82.zip",
+          "name": "Nightshift",
+          "sha256": "b4a874f3ae50499acf56f8d2d7692b8b0e4166e2251b4a0a51ed263804b1cd56",
+          "version": "1.3.82"
+        },
+        {
           "archived_at": "2026-11-19T05:19:00Z",
           "bytes": 12873723,
           "filename": "20261119T051900Z_44464164624_skin.nightshift-1.3.81.zip",
@@ -175,14 +183,6 @@
           "name": "Nightshift",
           "sha256": "c8dd07663b2a43689379e99017e31575345cb041486080f4c6545ff40e7a793f",
           "version": "1.3.77"
-        },
-        {
-          "archived_at": "2026-11-19T01:29:54Z",
-          "bytes": 12834387,
-          "filename": "20261119T012954Z_44437201718_skin.nightshift-1.3.76.zip",
-          "name": "Nightshift",
-          "sha256": "044336a2e06f1e2a5130365b8f6074f8ef0da4f5e406241e1870088d45e23aaa",
-          "version": "1.3.76"
         }
       ]
     }
