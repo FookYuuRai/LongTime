@@ -289,15 +289,24 @@ CHANGELOG_BASENAMES = {
     'changelog',
 }
 
-# Supports common Kodi add-on changelog headings, including:
-#   Version 1.4.17
-#   v1.3.16
-#   2.0.12
-#   [COLOR ...][B]Version 2.4.2.138[/B][/COLOR]
 CHANGELOG_VERSION_RE = re.compile(
     r'^(?:version\s+|v\s*)?'
-    r'(?P<version>\d+(?:\.\d+)+(?:[-+][0-9A-Za-z][0-9A-Za-z.-]*)?)$',
+    r'(?P<version>\d+(?:\.\d+)+(?:[-+][0-9A-Za-z][0-9A-Za-z.-]*)?)'
+    r'(?:\s*\([^)]*\))?$',
     re.IGNORECASE,
+)
+
+NEWS_VERSION_RE = re.compile(
+    r'^\s*(?:version\s+|v\s*)?'
+    r'(?P<version>\d+(?:\.\d+)+(?:[-+][0-9A-Za-z][0-9A-Za-z.-]*)?)'
+    r'(?:\s*[:：]\s*(?P<description>.*)|'
+    r'\s+[-–—]\s+(?P<dash_description>.*))?\s*$',
+    re.IGNORECASE,
+)
+
+NEWS_TAG_RE = re.compile(
+    r'<news\b[^>]*>(.*?)</news\s*>',
+    re.IGNORECASE | re.DOTALL,
 )
 
 KODI_CHANGELOG_TAG_RE = re.compile(
@@ -307,9 +316,9 @@ KODI_CHANGELOG_TAG_RE = re.compile(
 
 
 def _clean_changelog_line(value):
-    """Remove display markup while keeping the readable changelog text."""
     line = html.unescape(value.replace('\ufeff', '')).strip()
     line = KODI_CHANGELOG_TAG_RE.sub('', line)
+    line = re.sub(r'<[^>]+>', '', line)
     line = re.sub(r'^\s{0,3}#{1,6}\s*', '', line)
     line = re.sub(r'\*\*(.*?)\*\*', r'\1', line)
     line = re.sub(r'__(.*?)__', r'\1', line)
@@ -319,7 +328,6 @@ def _clean_changelog_line(value):
 
 
 def _decode_changelog(data):
-    """Decode a changelog without making a malformed archive fatal."""
     if isinstance(data, str):
         return data
 
@@ -329,8 +337,53 @@ def _decode_changelog(data):
         return data.decode('cp1252', errors='replace')
 
 
+def _news_text_from_addon_xml(xml_text):
+    """Extract and normalize the add-on's <news> element."""
+    match = NEWS_TAG_RE.search(xml_text or '')
+    if not match:
+        return None
+
+    value = match.group(1).strip()
+    if not value:
+        return None
+
+    value = re.sub(r'<!\[CDATA\[(.*?)\]\]>', r'\1', value, flags=re.S)
+    value = html.unescape(value)
+    value = re.sub(r'<br\s*/?>', '\n', value, flags=re.I)
+    value = re.sub(r'</p\s*>', '\n', value, flags=re.I)
+    value = re.sub(r'<[^>]+>', '', value)
+
+    normalized = []
+
+    for raw_line in value.splitlines():
+        line = _clean_changelog_line(raw_line)
+        if not line:
+            continue
+
+        heading = NEWS_VERSION_RE.fullmatch(line)
+
+        if heading:
+            version = heading.group('version')
+            description = (
+                heading.group('description')
+                or heading.group('dash_description')
+                or ''
+            ).strip()
+
+            normalized.append('Version ' + version)
+
+            if description:
+                normalized.append('- ' + description)
+
+            continue
+
+        normalized.append(line)
+
+    result = '\n'.join(normalized).strip()
+    return result or None
+
+
 def _find_changelog_member(names):
-    """Choose the most conventional changelog path from ZIP member names."""
     candidates = []
 
     for name in names:
@@ -359,7 +412,6 @@ def _find_changelog_member(names):
 
 
 def _changelog_text_from_members(files):
-    """Return (member_path, text) for a changelog in a ZIP member dictionary."""
     member = _find_changelog_member(files.keys())
     if member is None:
         return None
@@ -367,20 +419,52 @@ def _changelog_text_from_members(files):
     return member, _decode_changelog(files[member])
 
 
-def _changelog_text_from_archive(path):
-    """Read a changelog directly from an already-published add-on ZIP."""
+def _release_notes_from_members(files, xml_text):
+    """Prefer addon.xml news; use a changelog file only as fallback."""
+    news = _news_text_from_addon_xml(xml_text)
+
+    if news:
+        return '<news>', news
+
+    return _changelog_text_from_members(files)
+
+
+def _release_notes_from_archive(path):
+    """Read news first, then changelog, from the previous published ZIP."""
     if not path or not os.path.isfile(path):
         return None
 
     try:
         with zipfile.ZipFile(path, 'r') as archive:
-            member = _find_changelog_member(archive.namelist())
-            if member is None:
-                return None
-            return member, _decode_changelog(archive.read(member))
+            names = [
+                name for name in archive.namelist()
+                if not name.endswith('/')
+            ]
+
+            addon_xml = next(
+                (
+                    name for name in names
+                    if name.replace('\\', '/').rsplit('/', 1)[-1].casefold()
+                    == 'addon.xml'
+                ),
+                None,
+            )
+
+            xml_text = (
+                _decode_changelog(archive.read(addon_xml))
+                if addon_xml else ''
+            )
+
+            files = {
+                name: archive.read(name)
+                for name in names
+            }
+
+            return _release_notes_from_members(files, xml_text)
+
     except (OSError, zipfile.BadZipFile, RuntimeError, KeyError) as error:
         print(
-            'warning: could not read previous changelog from {0}: {1}'.format(
+            'warning: could not read previous release notes from {0}: {1}'.format(
                 os.path.basename(path),
                 error,
             )
@@ -389,7 +473,7 @@ def _changelog_text_from_archive(path):
 
 
 def _parse_changelog(text):
-    """Return (versioned sections, unversioned lines) in source order."""
+    """Return versioned sections and unversioned lines in source order."""
     sections = []
     unversioned = []
     current_version = None
@@ -402,6 +486,7 @@ def _parse_changelog(text):
         if heading:
             if current_version is not None:
                 sections.append((current_version, current_lines))
+
             current_version = heading.group('version')
             current_lines = []
             continue
@@ -413,9 +498,12 @@ def _parse_changelog(text):
             unversioned.append(line)
             continue
 
-        # Keep the wording but remove the original list marker. The commit
-        # formatter supplies one consistent bullet style for every add-on.
-        line = re.sub(r'^\s*(?:[-*+•]|\d+[.)])\s*', '', line).strip()
+        line = re.sub(
+            r'^\s*(?:[-*+•]|\d+[.)])\s*',
+            '',
+            line,
+        ).strip()
+
         if line:
             current_lines.append(line)
 
@@ -541,28 +629,35 @@ def _sha256_file(path):
 
 
 def collect_release_changes(out, found):
-    """Compare selected uploads with the previously published ZIPs."""
+    """Compare selected uploads with previously published release notes."""
     changes = []
 
     for addon_id in sorted(found):
-        version, source_path, _, files = found[addon_id]
+        version, source_path, xml_text, files = found[addon_id]
         previous_path = _find_previous_published_archive(out, addon_id)
 
-        if previous_path and _sha256_file(previous_path) == _sha256_file(source_path):
-            # The package itself is identical; it has no release delta.
+        if (
+            previous_path
+            and _sha256_file(previous_path) == _sha256_file(source_path)
+        ):
             continue
 
-        current_changelog = _changelog_text_from_members(files)
-        previous_changelog = _changelog_text_from_archive(previous_path)
+        current_notes = _release_notes_from_members(files, xml_text)
+        previous_notes = _release_notes_from_archive(previous_path)
 
-        current_text = current_changelog[1] if current_changelog else None
-        previous_text = previous_changelog[1] if previous_changelog else None
-        delta = changelog_delta(previous_text, current_text, version)
+        current_text = current_notes[1] if current_notes else None
+        previous_text = previous_notes[1] if previous_notes else None
+
+        delta = changelog_delta(
+            previous_text,
+            current_text,
+            version,
+        )
 
         changes.append({
             'addon_id': addon_id,
             'version': version,
-            'changelog_path': current_changelog[0] if current_changelog else None,
+            'changelog_path': current_notes[0] if current_notes else None,
             'entries': delta,
             'has_previous': bool(previous_path),
         })
@@ -585,10 +680,9 @@ def make_release_commit_message(changes):
 
         entries = change['entries']
         if not entries:
-            if change['changelog_path'] is None:
-                lines.append('  - Package updated; no changelog file found.')
-            else:
-                lines.append('  - Package updated; no new changelog entries detected.')
+            lines.append(
+                '  - Package updated; no new changelog entries detected.'
+            )
             lines.append('')
             continue
 
