@@ -282,6 +282,271 @@ def read_zip(path):
 
     return ident, version, xml_text, files
 
+def _increment_revision(version):
+    """Increment the final numeric component of an add-on version."""
+    match = re.fullmatch(r'(.*\.)(\d+)', version)
+
+    if match:
+        return match.group(1) + str(int(match.group(2)) + 1)
+
+    match = re.fullmatch(r'(\d+(?:\.\d+)*)', version)
+
+    if match:
+        parts = version.split('.')
+        parts[-1] = str(int(parts[-1]) + 1)
+        return '.'.join(parts)
+
+    raise RepoError(
+        'cannot automatically increment non-numeric version: {0}'.format(
+            version
+        )
+    )
+
+
+def _normalized_package_files(files, version):
+    """
+    Normalize revision-only metadata before comparing package contents.
+
+    ZIP timestamps and compression are not part of this comparison.
+    """
+    normalized = {}
+
+    for name, data in files.items():
+        normalized_name = name.replace('\\', '/')
+        basename = normalized_name.rsplit('/', 1)[-1].casefold()
+
+        if basename == 'addon.xml':
+            text = _decode_changelog(data)
+
+            text = re.sub(
+                r'(<addon\b[^>]*\bversion\s*=\s*["\'])'
+                + re.escape(version)
+                + r'(["\'])',
+                r'\g<1>@VERSION@\2',
+                text,
+                count=1,
+                flags=re.I | re.S,
+            )
+
+            news_match = NEWS_TAG_RE.search(text)
+
+            if news_match:
+                news = news_match.group(1)
+                news = re.sub(
+                    re.escape(version),
+                    '@VERSION@',
+                    news,
+                    flags=re.I,
+                )
+                text = (
+                    text[:news_match.start(1)]
+                    + news
+                    + text[news_match.end(1):]
+                )
+
+            normalized[normalized_name] = text.encode('utf-8')
+
+        elif basename in CHANGELOG_BASENAMES:
+            text = _decode_changelog(data)
+            output = []
+
+            for line in text.splitlines():
+                clean = _clean_changelog_line(line)
+                heading = CHANGELOG_VERSION_RE.fullmatch(clean)
+
+                if (
+                    heading
+                    and compare(heading.group('version'), version) == 0
+                ):
+                    line = re.sub(
+                        re.escape(heading.group('version')),
+                        '@VERSION@',
+                        line,
+                        count=1,
+                    )
+
+                output.append(line)
+
+            normalized[normalized_name] = '\n'.join(output).encode('utf-8')
+
+        else:
+            normalized[normalized_name] = data
+
+    return normalized
+
+
+def _same_package_contents(files_a, version_a, files_b, version_b):
+    """Return True when packages differ only in revision metadata."""
+    return (
+        _normalized_package_files(files_a, version_a)
+        == _normalized_package_files(files_b, version_b)
+    )
+
+
+def _replace_news_version(xml_text, old_version, new_version):
+    """Update matching version headings inside addon.xml <news>."""
+    match = NEWS_TAG_RE.search(xml_text)
+
+    if not match:
+        return xml_text
+
+    news = match.group(1)
+
+    news = re.sub(
+        r'(?<![0-9A-Za-z.])'
+        + re.escape(old_version)
+        + r'(?![0-9A-Za-z.])',
+        new_version,
+        news,
+    )
+
+    return (
+        xml_text[:match.start(1)]
+        + news
+        + xml_text[match.end(1):]
+    )
+
+
+def _bump_changelog(files, addon_id, old_version, new_version):
+    """
+    Rename the matching changelog heading.
+
+    If no matching heading exists, insert a revision-only entry at the top.
+    """
+    member = _find_changelog_member(files.keys())
+
+    if member is None:
+        member = '{0}/changelog.txt'.format(addon_id)
+        text = ''
+    else:
+        text = _decode_changelog(files[member])
+
+    lines = text.splitlines()
+    updated = False
+    output = []
+
+    for line in lines:
+        clean = _clean_changelog_line(line)
+        heading = CHANGELOG_VERSION_RE.fullmatch(clean)
+
+        if (
+            heading
+            and compare(heading.group('version'), old_version) == 0
+        ):
+            line = re.sub(
+                re.escape(heading.group('version')),
+                new_version,
+                line,
+                count=1,
+            )
+            updated = True
+
+        output.append(line)
+
+    if not updated:
+        output = [
+            new_version,
+            '- Revision-only package update; contents unchanged.',
+            '',
+        ] + output
+
+    files[member] = ('\n'.join(output).rstrip() + '\n').encode('utf-8')
+
+
+def _rewrite_archive_with_revision(path, addon_id, old_version, new_version):
+    """Update addon.xml and changelog inside a ZIP, then atomically replace it."""
+    ident, version, xml_text, files = read_zip(path)
+
+    if ident != addon_id or compare(version, old_version) != 0:
+        raise RepoError(
+            'archive changed while preparing revision bump: {0}'.format(
+                os.path.basename(path)
+            )
+        )
+
+    tag = re.search(r'<addon\b[^>]*>', xml_text, re.S)
+
+    if not tag:
+        raise RepoError('cannot find addon tag in addon.xml')
+
+    updated_tag = re.sub(
+        r'(\bversion\s*=\s*["\'])'
+        + re.escape(old_version)
+        + r'(["\'])',
+        r'\g<1>' + new_version + r'\2',
+        tag.group(0),
+        count=1,
+        flags=re.I,
+    )
+
+    if updated_tag == tag.group(0):
+        raise RepoError(
+            'could not update addon.xml version {0}'.format(old_version)
+        )
+
+    xml_text = (
+        xml_text[:tag.start()]
+        + updated_tag
+        + xml_text[tag.end():]
+    )
+
+    xml_text = _replace_news_version(
+        xml_text,
+        old_version,
+        new_version,
+    )
+
+    files['{0}/addon.xml'.format(addon_id)] = xml_text.encode('utf-8')
+
+    _bump_changelog(
+        files,
+        addon_id,
+        old_version,
+        new_version,
+    )
+
+    temporary_path = path + '.revision-tmp'
+
+    try:
+        with zipfile.ZipFile(path, 'r') as source_zip:
+            source_infos = {
+                info.filename: info
+                for info in source_zip.infolist()
+            }
+
+        with zipfile.ZipFile(
+            temporary_path,
+            'w',
+            allowZip64=True,
+        ) as output_zip:
+            for name, data in files.items():
+                info = source_infos.get(name)
+
+                if info is None:
+                    info = zipfile.ZipInfo(name)
+                    info.compress_type = zipfile.ZIP_DEFLATED
+
+                output_zip.writestr(info, data)
+
+        # Validate the rebuilt archive before replacing the original.
+        read_zip(temporary_path)
+        os.replace(temporary_path, path)
+
+    except Exception:
+        if os.path.exists(temporary_path):
+            os.remove(temporary_path)
+        raise
+
+    print(
+        'revision bumped: {0} {1} -> {2}'.format(
+            addon_id,
+            old_version,
+            new_version,
+        )
+    )
+
+    return read_zip(path)
+
 
 CHANGELOG_BASENAMES = {
     'changelog.txt',
@@ -1549,14 +1814,43 @@ def build(base, out, source):
         elif compare(version, found[ident][0]) == 0:
             existing_recency = found_recency[ident]
 
+            existing_version, existing_path, existing_xml, existing_files = (
+                found[ident]
+            )
+
             if candidate_recency > existing_recency:
-                print(
-                    'duplicate version: keeping newer {0}; '
-                    'replacing {1}'.format(
-                        name,
-                        os.path.basename(found[ident][1]),
+                if _same_package_contents(
+                    existing_files,
+                    existing_version,
+                    files,
+                    version,
+                ):
+                    bumped_version = _increment_revision(version)
+
+                    ident, version, xml_text, files = (
+                        _rewrite_archive_with_revision(
+                            path,
+                            ident,
+                            version,
+                            bumped_version,
+                        )
                     )
-                )
+
+                    candidate_recency = _source_archive_recency(path)
+
+                    print(
+                        'identical newer ZIP detected; automatically '
+                        'bumped {0} to {1}'.format(
+                            name,
+                            version,
+                        )
+                    )
+
+                else:
+                    print(
+                        'duplicate version: newer ZIP has different '
+                        'contents; keeping {0}'.format(name)
+                    )
 
                 found[ident] = (
                     version,
@@ -1575,6 +1869,7 @@ def build(base, out, source):
                         name,
                     )
                 )
+
 
     os.makedirs(out, exist_ok=True)
 
