@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.277">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.278">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -39,7 +39,13 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.277 - The CRT scrape terminal cursor blinks again while the screen waits. Only the cursor character changes; the rest of the screen does not redraw or pulse.</news>
+        <news>2.4.3.278
+- TorBox: queued transfers are listed and can be removed from TorBox.
+- An S#E# tag whose number is above the season's episode count is read as the absolute episode: S04E47 matches S4E1 when season 4 has 30 episodes.
+- TMDb episode stills fall back to the absolute number when TMDb has no episode at the aired season and number.
+- Episode group checks and the Rescrape With Episode Group action log each step: no group, no entry, placement rejected, applied, or an error.
+- Pack names: a bare show name, a show name with Complete, Movies, Films or OVA, and a franchise list that names the show with a pack or movies marker are accepted as packs. Episode ranges that cover the episode are accepted.
+- TorBox scraper logs the cloud list per type, each folder's gate decision, raw and scrapeable file counts, fetch limits and per-file accept or reject, as Real-Debrid and Premiumize do.</news>
     </extension>
 </addon>
 <addon id="plugin.video.tvdbhelper" name="TVDB Helper" version="0.3.8" provider-name="local">
