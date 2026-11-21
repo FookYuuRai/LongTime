@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.284">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.285">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -40,10 +40,8 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.284
-- Watched indicators on TVDB Episode Order screens also read the TVDB aired numbering, so episodes watched through Trakt, Simkl, MDBList or PunchPlay show as watched there. Mark Watched and Mark Unwatched follow the same check.
-- The focus watcher falls back to the TVDB still on the focused item when TMDb has no still, so Episode Order and episode lists get a background for episodes such as specials.
-- My Services screens and provider sync are unchanged.</news>
+        <news>2.4.3.285
+- Recently Watched Episodes includes episodes WatchVault holds as watched. When both sources have the same episode, the newest watch is kept. Rows without a TMDb show id are not shown.</news>
     </extension>
 </addon>
 <addon id="plugin.video.tvdbhelper" name="TVDB Helper" version="0.3.8" provider-name="local">
@@ -69,7 +67,7 @@
     <license>MIT</license>
   </extension>
 </addon>
-<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.61" provider-name="local">
+<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.62" provider-name="local">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -87,7 +85,7 @@
     <assets>
       <icon>icon.png</icon>
     </assets>
-      <news>1.5.61: anime lookup source fix; Nightshift bridge reads and writes work end to end.</news>
+      <news>1.5.62: history imports log each record and why it was skipped; Nightshift Recently Watched includes WatchVault episodes.</news>
   </extension>
 </addon>
 <addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.4.19" provider-name="Custom">

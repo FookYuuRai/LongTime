@@ -5,6 +5,14 @@
       "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
       "releases": [
         {
+          "archived_at": "2026-11-21T16:02:31Z",
+          "bytes": 23162952,
+          "filename": "20261121T160231Z_44922269777_plugin.video.nightshift-2.4.3.284.zip",
+          "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
+          "sha256": "3b762e9dd76b3b93b0862776b25cf1356df49a2d720ecdc0a6b8655d92b503df",
+          "version": "2.4.3.284"
+        },
+        {
           "archived_at": "2026-11-21T06:28:32Z",
           "bytes": 23087361,
           "filename": "20261121T062832Z_44875605335_plugin.video.nightshift-2.4.3.283.zip",
@@ -35,14 +43,6 @@
           "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
           "sha256": "8799a7aa15da08c7d541fac02aaa4723fcc710e7ea63da74c6bb624b4c84ce52",
           "version": "2.4.3.278"
-        },
-        {
-          "archived_at": "2026-11-21T02:04:21Z",
-          "bytes": 23074504,
-          "filename": "20261121T020421Z_44853650458_plugin.video.nightshift-2.4.3.277.zip",
-          "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
-          "sha256": "f6d4d2276857f45bf1fe7d909d86d7a801d5fdea004bce11bb70c8b367e35b3d",
-          "version": "2.4.3.277"
         }
       ]
     },
@@ -50,6 +50,14 @@
       "id": "plugin.video.watchvault",
       "name": "WatchVault",
       "releases": [
+        {
+          "archived_at": "2026-11-21T16:02:31Z",
+          "bytes": 125759,
+          "filename": "20261121T160231Z_44922269777_plugin.video.watchvault-1.5.61.zip",
+          "name": "WatchVault",
+          "sha256": "e2f4dda0e1828da15ad139dae6d06feccf3042a220c6256462ef14e88ae97657",
+          "version": "1.5.61"
+        },
         {
           "archived_at": "2026-11-12T00:23:51Z",
           "bytes": 68559,
