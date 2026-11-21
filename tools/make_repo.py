@@ -39,6 +39,7 @@ import re
 import shutil
 import sys
 import zipfile
+import subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -1354,9 +1355,75 @@ def prune_source(source, keep):
     return removed
 
 
+def _source_archive_recency(path):
+    """
+    Return a comparable recency tuple for a source ZIP.
+
+    Priority:
+    1. Latest Git commit timestamp for the ZIP.
+    2. Latest timestamp of any file inside the ZIP.
+    3. Filesystem modification timestamp.
+    4. Filename as a deterministic tie-breaker.
+    """
+    git_timestamp = 0
+
+    try:
+        relative_path = os.path.relpath(path, ROOT)
+
+        result = subprocess.run(
+            [
+                'git',
+                'log',
+                '-1',
+                '--format=%ct',
+                '--',
+                relative_path,
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode == 0 and result.stdout.strip():
+            git_timestamp = int(result.stdout.strip())
+
+    except (OSError, ValueError):
+        pass
+
+    zip_timestamp = 0
+
+    try:
+        with zipfile.ZipFile(path, 'r') as archive:
+            timestamps = [
+                info.date_time
+                for info in archive.infolist()
+                if not info.is_dir()
+            ]
+
+            if timestamps:
+                zip_timestamp = max(timestamps)
+
+    except (OSError, zipfile.BadZipFile):
+        pass
+
+    try:
+        modified_timestamp = os.stat(path).st_mtime_ns
+    except OSError:
+        modified_timestamp = 0
+
+    return (
+        git_timestamp,
+        zip_timestamp,
+        modified_timestamp,
+        os.path.basename(path).casefold(),
+    )
+
+
 def build(base, out, source):
     """Build the Kodi repository and publish the selected background track."""
     found = {}
+    found_recency = {}
 
     for name in sorted(os.listdir(source)) if os.path.isdir(source) else []:
         if not name.endswith('.zip'):
@@ -1381,6 +1448,8 @@ def build(base, out, source):
                 'repository add-on itself'.format(name)
             )
 
+        candidate_recency = _source_archive_recency(path)
+
         if (
             ident not in found
             or compare(version, found[ident][0]) > 0
@@ -1392,14 +1461,37 @@ def build(base, out, source):
                 files,
             )
 
+            found_recency[ident] = candidate_recency
+
         elif compare(version, found[ident][0]) == 0:
-            raise RepoError(
-                '{0}: version {1} of {2} is there twice'.format(
-                    name,
-                    version,
-                    ident,
+            existing_recency = found_recency[ident]
+
+            if candidate_recency > existing_recency:
+                print(
+                    'duplicate version: keeping newer {0}; '
+                    'replacing {1}'.format(
+                        name,
+                        os.path.basename(found[ident][1]),
+                    )
                 )
-            )
+
+                found[ident] = (
+                    version,
+                    path,
+                    xml_text,
+                    files,
+                )
+
+                found_recency[ident] = candidate_recency
+
+            else:
+                print(
+                    'duplicate version: keeping {0}; '
+                    'ignoring older {1}'.format(
+                        os.path.basename(found[ident][1]),
+                        name,
+                    )
+                )
 
     os.makedirs(out, exist_ok=True)
 
