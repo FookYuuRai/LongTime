@@ -69,7 +69,7 @@
     <license>MIT</license>
   </extension>
 </addon>
-<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.47" provider-name="local">
+<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.61" provider-name="local">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -87,7 +87,7 @@
     <assets>
       <icon>icon.png</icon>
     </assets>
-      <news>1.5.15: Manage add-ons dialog, episode-order list, settings help, changelog.</news>
+      <news>1.5.61: anime lookup source fix; Nightshift bridge reads and writes work end to end.</news>
   </extension>
 </addon>
 <addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.4.19" provider-name="Custom">
