@@ -537,6 +537,16 @@ def _rewrite_archive_with_revision(path, addon_id, old_version, new_version):
             os.remove(temporary_path)
         raise
 
+    # Rename the actual ZIP so its filename matches addon.xml.
+    directory = os.path.dirname(path)
+    renamed_path = os.path.join(
+        directory,
+        '{0}-{1}.zip'.format(addon_id, new_version),
+    )
+
+    if os.path.abspath(renamed_path) != os.path.abspath(path):
+        os.replace(path, renamed_path)
+
     print(
         'revision bumped: {0} {1} -> {2}'.format(
             addon_id,
@@ -545,7 +555,9 @@ def _rewrite_archive_with_revision(path, addon_id, old_version, new_version):
         )
     )
 
-    return read_zip(path)
+    ident, version, xml_text, files = read_zip(renamed_path)
+
+    return ident, version, xml_text, files, renamed_path
 
 
 CHANGELOG_BASENAMES = {
@@ -1768,10 +1780,12 @@ def _source_archive_recency(path):
     )
 
 
+
 def build(base, out, source):
     """Build the Kodi repository and publish the selected background track."""
     found = {}
     found_recency = {}
+    bumped_ids = set()
 
     for name in sorted(os.listdir(source)) if os.path.isdir(source) else []:
         if not name.endswith('.zip'):
@@ -1827,15 +1841,20 @@ def build(base, out, source):
                 ):
                     bumped_version = _increment_revision(version)
 
-                    ident, version, xml_text, files = (
-                        _rewrite_archive_with_revision(
-                            path,
-                            ident,
-                            version,
-                            bumped_version,
-                        )
+                    (
+                        ident,
+                        version,
+                        xml_text,
+                        files,
+                        path,
+                    ) = _rewrite_archive_with_revision(
+                        path,
+                        ident,
+                        version,
+                        bumped_version,
                     )
 
+                    bumped_ids.add(ident)
                     candidate_recency = _source_archive_recency(path)
 
                     print(
@@ -1869,6 +1888,166 @@ def build(base, out, source):
                         name,
                     )
                 )
+
+    os.makedirs(out, exist_ok=True)
+
+    # Compare each selected upload with the previously published ZIP before
+    # clear_folder() replaces that add-on's published directory.
+    release_changes = collect_release_changes(out, found)
+    commit_message = make_release_commit_message(release_changes)
+    write_github_output('commit_message', commit_message)
+
+    print('Generated Git commit message:')
+    print(commit_message.rstrip())
+
+    # Preserve manually maintained output directories.
+    for entry in os.listdir(out):
+        full = os.path.join(out, entry)
+
+        if (
+            os.path.isdir(full)
+            and entry not in PRESERVED_OUTPUT_DIRS
+            and entry not in found
+        ):
+            shutil.rmtree(full)
+
+    listing = []
+
+    for ident in sorted(found):
+        version, path, xml_text, files = found[ident]
+        folder = os.path.join(out, ident)
+
+        clear_folder(folder)
+
+        # Publish the actual selected ZIP using its updated revision.
+        shutil.copyfile(
+            path,
+            os.path.join(
+                folder,
+                '{0}-{1}.zip'.format(ident, version),
+            ),
+        )
+
+        for asset in assets_of(xml_text):
+            data = files.get(
+                '{0}/{1}'.format(ident, asset)
+            )
+
+            if data is not None:
+                target = os.path.join(folder, asset)
+
+                os.makedirs(
+                    os.path.dirname(target),
+                    exist_ok=True,
+                )
+
+                with open(target, 'wb') as f:
+                    f.write(data)
+
+        listing.append(body(xml_text))
+
+    repository_xml_path = os.path.join(
+        REPOSITORY_SOURCE,
+        'addon.xml',
+    )
+
+    with open(repository_xml_path, 'rb') as f:
+        repository_xml = (
+            f.read()
+            .decode('utf-8')
+            .replace('@BASE@', base)
+        )
+
+    repository_id, repository_version = addon_info(
+        repository_xml
+    )
+
+    repository_folder = os.path.join(
+        out,
+        repository_id,
+    )
+
+    clear_folder(repository_folder)
+
+    write_zip(
+        os.path.join(
+            repository_folder,
+            '{0}-{1}.zip'.format(
+                repository_id,
+                repository_version,
+            ),
+        ),
+        repository_id,
+        [
+            (
+                'addon.xml',
+                repository_xml.encode('utf-8'),
+            )
+        ],
+    )
+
+    listing.append(body(repository_xml))
+
+    text = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        '<addons>\n{0}\n</addons>\n'
+    ).format('\n'.join(listing))
+
+    with open(
+        os.path.join(out, 'addons.xml'),
+        'wb',
+    ) as f:
+        f.write(text.encode('utf-8'))
+
+    with open(
+        os.path.join(out, 'addons.xml.md5'),
+        'w',
+    ) as f:
+        f.write(
+            hashlib.md5(text.encode('utf-8')).hexdigest()
+        )
+
+    # Publish the newest numbered track before generating indexes.
+    audio_filename = publish_background_audio(
+        source,
+        out,
+    )
+
+    # Generate indexes after the selected audio and manifest exist.
+    write_indexes(out)
+
+    # Keep normal selected add-on ZIPs in Later/.
+    # Revision-bumped add-ons are deliberately excluded.
+    # This removes BOTH the old and newly bumped ZIPs after a
+    # successful build, preventing repeated revision bumping.
+    keep = {
+        os.path.abspath(found[ident][1])
+        for ident in found
+        if ident not in bumped_ids
+    }
+
+    # Remove superseded add-on ZIPs.
+    removed = (
+        prune_source(source, keep)
+        if os.path.isdir(source)
+        else []
+    )
+
+    # Remove older numbered audio files from Later/.
+    # Keep the selected source file for future builds.
+    prune_source_audio(
+        source,
+        audio_filename,
+    )
+
+    return (
+        [
+            (ident, found[ident][0])
+            for ident in sorted(found)
+        ],
+        (repository_id, repository_version),
+        removed,
+    )
 
 
     os.makedirs(out, exist_ok=True)
