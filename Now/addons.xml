@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.278">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.279">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -39,13 +39,10 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.278
-- TorBox: queued transfers are listed and can be removed from TorBox.
-- An S#E# tag whose number is above the season's episode count is read as the absolute episode: S04E47 matches S4E1 when season 4 has 30 episodes.
-- TMDb episode stills fall back to the absolute number when TMDb has no episode at the aired season and number.
-- Episode group checks and the Rescrape With Episode Group action log each step: no group, no entry, placement rejected, applied, or an error.
-- Pack names: a bare show name, a show name with Complete, Movies, Films or OVA, and a franchise list that names the show with a pack or movies marker are accepted as packs. Episode ranges that cover the episode are accepted.
-- TorBox scraper logs the cloud list per type, each folder's gate decision, raw and scrapeable file counts, fetch limits and per-file accept or reject, as Real-Debrid and Premiumize do.</news>
+        <news>2.4.3.279
+- Fixed the integer error in the TMDb episode group picker (an unknown episode id arrives as the text 'None').
+- TMDb stills: the absolute number of each aired-order episode is saved when the episode list is built, so the focus draw can find the still at TMDb's absolute position. The list build itself downloads nothing, which fixes the Story Arcs timeout.
+- TorBox: when TorBox refuses a request, its own message is shown on browse and add-to-cloud (for example a plan that does not include cloud listing) and logged as TB Browse or TB Add, instead of a generic message.</news>
     </extension>
 </addon>
 <addon id="plugin.video.tvdbhelper" name="TVDB Helper" version="0.3.8" provider-name="local">
