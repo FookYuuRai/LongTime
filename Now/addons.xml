@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.279">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.280">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -39,10 +39,9 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.279
-- Fixed the integer error in the TMDb episode group picker (an unknown episode id arrives as the text 'None').
-- TMDb stills: the absolute number of each aired-order episode is saved when the episode list is built, so the focus draw can find the still at TMDb's absolute position. The list build itself downloads nothing, which fixes the Story Arcs timeout.
-- TorBox: when TorBox refuses a request, its own message is shown on browse and add-to-cloud (for example a plan that does not include cloud listing) and logged as TB Browse or TB Add, instead of a generic message.</news>
+        <news>2.4.3.280
+- Episodes with no TMDb still now use the TVDB still for that episode, so every episode with a TVDB image gets a background.
+- The TVDB image for each episode is saved when the episode list is built, so the rings focus watcher can use it too.</news>
     </extension>
 </addon>
 <addon id="plugin.video.tvdbhelper" name="TVDB Helper" version="0.3.8" provider-name="local">
