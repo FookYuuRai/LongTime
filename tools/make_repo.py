@@ -420,18 +420,86 @@ def _changelog_text_from_members(files):
     return member, _decode_changelog(files[member])
 
 
-def _release_notes_from_members(files, xml_text):
-    """Prefer addon.xml news; use a changelog file only as fallback."""
+def _release_notes_for_version(text, expected_version):
+    """
+    Return only the release-note section matching the ZIP version.
+
+    If the text has version headings but none matches the ZIP version,
+    return None rather than using notes from another release.
+
+    Unversioned notes are retained as a fallback.
+    """
+    if not text:
+        return None
+
+    sections, unversioned = _parse_changelog(text)
+
+    if not sections:
+        return text if unversioned else None
+
+    for version, lines in sections:
+        if compare(version, expected_version) == 0:
+            result = ['Version ' + version]
+            result.extend('- ' + line for line in lines)
+            return '\n'.join(result)
+
+    return None
+
+
+def _release_notes_from_members(files, xml_text, expected_version):
+    """
+    Prefer addon.xml news only when its version matches the ZIP.
+
+    If news has the wrong version, use the matching changelog section.
+    Never substitute release notes belonging to another version.
+    """
     news = _news_text_from_addon_xml(xml_text)
 
     if news:
-        return '<news>', news
+        matching_news = _release_notes_for_version(
+            news,
+            expected_version,
+        )
 
-    return _changelog_text_from_members(files)
+        if matching_news:
+            return '<news>', matching_news
+
+        print(
+            'warning: addon.xml news does not match ZIP version {0}; '
+            'checking changelog'.format(expected_version)
+        )
+
+    changelog = _changelog_text_from_members(files)
+
+    if changelog:
+        member, changelog_text = changelog
+
+        matching_changelog = _release_notes_for_version(
+            changelog_text,
+            expected_version,
+        )
+
+        if matching_changelog:
+            print(
+                'release notes: using {0} for version {1}'.format(
+                    member,
+                    expected_version,
+                )
+            )
+
+            return member, matching_changelog
+
+        print(
+            'warning: no changelog section matches ZIP version {0}'.format(
+                expected_version
+            )
+        )
+
+    return None
 
 
 def _release_notes_from_archive(path):
-    """Read news first, then changelog, from the previous published ZIP."""
+    """Read release notes matching the version inside the previous ZIP."""
     if not path or not os.path.isfile(path):
         return None
 
@@ -451,19 +519,33 @@ def _release_notes_from_archive(path):
                 None,
             )
 
-            xml_text = (
-                _decode_changelog(archive.read(addon_xml))
-                if addon_xml else ''
+            if not addon_xml:
+                return None
+
+            xml_text = _decode_changelog(
+                archive.read(addon_xml)
             )
+
+            _, expected_version = addon_info(xml_text)
 
             files = {
                 name: archive.read(name)
                 for name in names
             }
 
-            return _release_notes_from_members(files, xml_text)
+            return _release_notes_from_members(
+                files,
+                xml_text,
+                expected_version,
+            )
 
-    except (OSError, zipfile.BadZipFile, RuntimeError, KeyError) as error:
+    except (
+        OSError,
+        RepoError,
+        zipfile.BadZipFile,
+        RuntimeError,
+        KeyError,
+    ) as error:
         print(
             'warning: could not read previous release notes from {0}: {1}'.format(
                 os.path.basename(path),
@@ -643,8 +725,9 @@ def collect_release_changes(out, found):
         ):
             continue
 
-        current_notes = _release_notes_from_members(files, xml_text)
-        previous_notes = _release_notes_from_archive(previous_path)
+        current_notes = _release_notes_from_members(files, xml_text, version, )
+        previous_notes = _release_notes_from_archive(previous_path, )
+
 
         current_text = current_notes[1] if current_notes else None
         previous_text = previous_notes[1] if previous_notes else None
