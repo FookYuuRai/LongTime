@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.283">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.284">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -40,15 +40,10 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.283
-- Encrypted log uploads now target the dedicated private repository FookYuuRai/logs.
-- The destination repository is fixed in the addon; the upload path is logs/ and is no longer user-editable.
-- The uploader detects the private repository's actual default branch at upload time.
-- Use a fine-grained token restricted to FookYuuRai/logs with Contents: Read and write.
-
-2.4.3.280
-- Episodes with no TMDb still now use the TVDB still for that episode, so every episode with a TVDB image gets a background.
-- The TVDB image for each episode is saved when the episode list is built, so the rings focus watcher can use it too.</news>
+        <news>2.4.3.284
+- Watched indicators on TVDB Episode Order screens also read the TVDB aired numbering, so episodes watched through Trakt, Simkl, MDBList or PunchPlay show as watched there. Mark Watched and Mark Unwatched follow the same check.
+- The focus watcher falls back to the TVDB still on the focused item when TMDb has no still, so Episode Order and episode lists get a background for episodes such as specials.
+- My Services screens and provider sync are unchanged.</news>
     </extension>
 </addon>
 <addon id="plugin.video.tvdbhelper" name="TVDB Helper" version="0.3.8" provider-name="local">
