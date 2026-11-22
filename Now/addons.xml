@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.293">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.294">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -40,8 +40,8 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.293
-- WatchVault shows as a Watched Status Provider whenever the WatchVault add-on loads. A failed load is retried, so it no longer stays hidden until Kodi restarts. The reason is logged if it is still missing.</news>
+        <news>2.4.3.294
+- Unmarking (and any mark) refreshes the lists at once. Watched and in-progress lists are sorted by most recent watch, descending, not alphabetically. WatchVault shows its name in the provider picker.</news>
     </extension>
 </addon>
 <addon id="plugin.video.tvdbhelper" name="TVDB Helper" version="0.3.8" provider-name="local">
@@ -67,7 +67,7 @@
     <license>MIT</license>
   </extension>
 </addon>
-<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.70" provider-name="local">
+<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.72" provider-name="local">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -85,7 +85,7 @@
     <assets>
       <icon>icon.png</icon>
     </assets>
-      <news>1.5.70: the MDBList in-progress list is refreshed by Provider sync (same switch, interval and button); the separate setting is removed.</news>
+      <news>1.5.72: Purge erases the watch history (watched shows, episodes and movies, in-progress rows). The anime catalog stays.</news>
   </extension>
 </addon>
 <addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.4.19" provider-name="Custom">
