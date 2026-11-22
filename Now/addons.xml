@@ -67,7 +67,7 @@
     <license>MIT</license>
   </extension>
 </addon>
-<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.69" provider-name="local">
+<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.70" provider-name="local">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -85,7 +85,7 @@
     <assets>
       <icon>icon.png</icon>
     </assets>
-      <news>1.5.69: the MDBList in-progress refresh interval is a setting (default 30 minutes, 0 = off).</news>
+      <news>1.5.70: the MDBList in-progress list is refreshed by Provider sync (same switch, interval and button); the separate setting is removed.</news>
   </extension>
 </addon>
 <addon id="script.service.nightshift.ambience" name="Nightshift Ambience" version="1.4.19" provider-name="Custom">

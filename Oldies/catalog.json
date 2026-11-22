@@ -51,6 +51,14 @@
       "name": "WatchVault",
       "releases": [
         {
+          "archived_at": "2026-11-22T04:11:53Z",
+          "bytes": 131277,
+          "filename": "20261122T041153Z_44983886271_plugin.video.watchvault-1.5.69.zip",
+          "name": "WatchVault",
+          "sha256": "4a562cdf50f1e09a32c2543584192ab9f64ec28546eabe03a75303927520eef9",
+          "version": "1.5.69"
+        },
+        {
           "archived_at": "2026-11-22T04:04:29Z",
           "bytes": 128963,
           "filename": "20261122T040429Z_44983347766_plugin.video.watchvault-1.5.67.zip",
@@ -81,14 +89,6 @@
           "name": "WatchVault",
           "sha256": "81b9a0b1257ec55e8d2ea79a671627ba4c62e6e409e1bb2eda4ba1a46bef025f",
           "version": "1.5.63"
-        },
-        {
-          "archived_at": "2026-11-21T16:41:01Z",
-          "bytes": 125271,
-          "filename": "20261121T164101Z_44925809159_plugin.video.watchvault-1.5.62.zip",
-          "name": "WatchVault",
-          "sha256": "570258e9c80a48d38a213f99b0e6dce996a7b5cf701be1f4c81ce3b6ebc658f9",
-          "version": "1.5.62"
         }
       ]
     },
