@@ -5,6 +5,14 @@
       "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
       "releases": [
         {
+          "archived_at": "2026-11-22T14:56:06Z",
+          "bytes": 23114300,
+          "filename": "20261122T145606Z_45035301327_plugin.video.nightshift-2.4.3.301.zip",
+          "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
+          "sha256": "f9602f85d68fc29c8a7ccf2453c035a89f7ac13ff2156f564fe932da36a76bf1",
+          "version": "2.4.3.301"
+        },
+        {
           "archived_at": "2026-11-22T08:28:03Z",
           "bytes": 23094729,
           "filename": "20261122T082803Z_45002861809_plugin.video.nightshift-2.4.3.300.zip",
@@ -35,14 +43,6 @@
           "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
           "sha256": "004bb9e9578e161660bd08c21cb1d6d13e31413452295385cda9eb46cd176feb",
           "version": "2.4.3.296"
-        },
-        {
-          "archived_at": "2026-11-22T05:59:25Z",
-          "bytes": 23092434,
-          "filename": "20261122T055925Z_44991650058_plugin.video.nightshift-2.4.3.294.zip",
-          "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
-          "sha256": "7b8de33e672bd293169b44039a1d375df5341322b599b0232c226d2598893f45",
-          "version": "2.4.3.294"
         }
       ]
     },
@@ -50,6 +50,14 @@
       "id": "plugin.video.watchvault",
       "name": "WatchVault",
       "releases": [
+        {
+          "archived_at": "2026-11-22T14:56:06Z",
+          "bytes": 131461,
+          "filename": "20261122T145606Z_45035301327_plugin.video.watchvault-1.5.72.zip",
+          "name": "WatchVault",
+          "sha256": "8bddd328be9ff9b4d79556599052bef15b0c083567cbc694c1f62fff90610523",
+          "version": "1.5.72"
+        },
         {
           "archived_at": "2026-11-22T05:09:19Z",
           "bytes": 131334,
@@ -81,14 +89,6 @@
           "name": "WatchVault",
           "sha256": "b6b0f984f8f5f131383c902819e3758cf0639b547e6f13131378a7bd420e9bda",
           "version": "1.5.65"
-        },
-        {
-          "archived_at": "2026-11-21T19:56:50Z",
-          "bytes": 127666,
-          "filename": "20261121T195650Z_44943557411_plugin.video.watchvault-1.5.64.zip",
-          "name": "WatchVault",
-          "sha256": "5314c3fb886d38407bdd2a3fbbb627f71eba9e299956ba653328acba791be129",
-          "version": "1.5.64"
         }
       ]
     },

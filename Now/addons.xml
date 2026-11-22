@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.301">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.302">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -40,10 +40,11 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.301
-- Before encrypting and uploading Kodi logs, the log uploader removes entire lines containing playingFile= or nntpstream, in addition to the existing URL and AIOStreams host filters.
-- Fixed encrypted GitHub token download location: NIGHTSHIFT fetches token/github_token.nstoken from the OnTheSide branch of FookYuuRai/logs, without relying on the repository default branch.
-- Encrypted Kodi logs upload to FookYuuRai/logs, OnTheSide branch, logs/ directory.</news>
+        <news>2.4.3.302
+- WatchVault as the watched status provider: its add-on settings were read from NIGHTSHIFT's settings inside Nightshift, which gave the Kodi 'Invalid setting type' errors and wrong TVDB key, anime and sync values. They now read WatchVault's own settings.
+- Watched status provider: after choosing WatchVault the screen shows its name instead of the number 5.
+- Database check: the WatchVault cache table count did not match, so the cache was deleted on every check. Fixed.
+- Logs when a TVDB episode list is fetched instead of cached, with the time it took, to track down the slow recently watched lists.</news>
 
 
 
@@ -72,7 +73,7 @@
     <license>MIT</license>
   </extension>
 </addon>
-<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.72" provider-name="local">
+<addon id="plugin.video.watchvault" name="WatchVault" version="1.5.73" provider-name="local">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
