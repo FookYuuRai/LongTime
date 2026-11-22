@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.298">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.300">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -40,7 +40,9 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.298
+        <news>2.4.3.300
+- Fixed encrypted GitHub token download location: NIGHTSHIFT now fetches token/github_token.nstoken from the OnTheSide branch of FookYuuRai/logs, without relying on the repository default branch.</news>
+<news>2.4.3.298
 - Before encrypting and uploading a Kodi log, the log uploader removes entire lines containing any HTTP/HTTPS URL or one of the specified AIOStreams provider hostnames.</news>
 <news>2.4.3.297
 - GitHub log uploader now downloads and decrypts github_token.nstoken (NSTOK01/AES-256-GCM) from FookYuuRai/logs, then uploads encrypted Kodi logs to FookYuuRai/LongTime on OnTheSide. The GitHub token is not entered manually or saved locally.</news>
