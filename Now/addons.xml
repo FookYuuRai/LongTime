@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.302">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.303">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -40,11 +40,12 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.302
-- WatchVault as the watched status provider: its add-on settings were read from NIGHTSHIFT's settings inside Nightshift, which gave the Kodi 'Invalid setting type' errors and wrong TVDB key, anime and sync values. They now read WatchVault's own settings.
-- Watched status provider: after choosing WatchVault the screen shows its name instead of the number 5.
-- Database check: the WatchVault cache table count did not match, so the cache was deleted on every check. Fixed.
-- Logs when a TVDB episode list is fetched instead of cached, with the time it took, to track down the slow recently watched lists.</news>
+        <news>2.4.3.303
+- Recently Watched rebuilds only the rows that changed. When one episode is watched or unwatched, the other rows reuse their cached packet, so the list comes back in seconds instead of being rebuilt from scratch.
+- Episode background: when TMDb has no still and the episode has no TVDB still, the TVDB aired-order image for the same season and episode is used.
+- Empty artwork is passed to Kodi as an empty string, which removes the "Passing None where a string is expected" warnings.
+- Encrypted log uploader normalizes the log text to bytes before the sensitive-line filter, fixing "cannot use a bytes pattern on a string-like object".
+- Watched changes no longer delete the Recently Watched cache.</news>
 
 
 
