@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.309">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.310">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -40,10 +40,10 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.309
-- Focus monitor: the focused episode's still uses the artwork coordinates (TMDb episode positions for aired-order rows), so Bungo Stray Dogs S3E24 shows TMDb S1E60's stills and not only the TVDB fallback.
-- Anime calendar: episodes already watched in WatchVault stay in the calendar (hide watched no longer removes them from it), so the calendar shows every airing row.
-- Order screen and marks: the TVDB order list is cached for six hours, and the random bag no longer makes the by-ID TMDb still request that returned nothing for episodes that have stills.</news>
+        <news>2.4.3.310
+- Theme download: a theme file the host answers as missing is remembered for 14 days and not asked for again. yt-dlp only reads real web pages now; a file name on the animemusicquiz host is no longer sent to it (that caused the 'jrk12y' 404 error).
+- Anime calendar: AniList's running episode numbers are placed across TMDb's seasons (Bungo Stray Dogs S3E24 is AniList episode 61, after TMDb's 60 season 1 episodes). A row TMDb cannot place is kept as an AniList row, so the calendar shows every airing row.
+- Aired order: a TVDB episode whose English title matches exactly one regular TMDb episode takes that episode, whatever its number. Specials keep their own matching.</news>
 
 
 
