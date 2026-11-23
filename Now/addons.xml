@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.304">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.307">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -40,14 +40,10 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.304
-- Random bag: when TMDb has no still for an episode, the absolute number comes from TVDB's aired-order list for that season and episode, and the TMDb absolute episode is tried before the TVDB image.
-- Anime calendar: Jikan (MyAnimeList poster lookups) removed. Rows without a TMDb match use the AniList cover.
-- Empty IMDb IDs, premiere dates and plots are passed to Kodi as empty strings, removing the "Passing None where a string is expected" warnings.
-- Lists that cannot be saved are logged with the reason. The public calendar packet cache logs its save and readback, and token changes.
-- WatchVault mirror failures are logged instead of ignored.
-- Encrypted log uploader: lines containing http, https or hostname in any letter case are removed, as well as the provider hostnames, playingFile= and nntpstream lines.
-- Removed the malformed tips file "260." from the package.</news>
+        <news>2.4.3.307
+- Build screens: the show-level WatchVault watched data is built once every few seconds per list build instead of once per episode row. Build times with WatchVault as the watched indicator were the cause of the slower anime calendar and recently watched builds.
+- Watch history keeps the numbering it had in 2.4.3.283. The aired-order match is used only for episode backgrounds, so existing watched marks, WatchVault rows and unmarks are unaffected. 2.4.3.306 changed that numbering; use this version instead.
+- Bungo Stray Dogs S3E24 uses TMDb S1E60 artwork (10 stills); S3E23 uses S1E59.</news>
 
 
 
