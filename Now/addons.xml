@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.308">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.309">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -40,11 +40,10 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.308
-- Artwork: episode backgrounds use the aired-order match to TMDb's episode positions whenever the TVDB and TMDb regular episode counts agree. Bungo Stray Dogs S3E24 uses TMDb S1E60 (10 stills). The match now also uses TMDb's season list when its episode rows are unavailable.
-- TVDB images are full artwork URLs everywhere. The relative path TVDB returned for S3E24 is joined to the TVDB artwork host, so the TVDB fallback displays.
-- The log has a TMDbOrder line for each aired-order build: TVDB and TMDb regular counts, and whether positions or name and date matching were used.
-- Screen build speed: the WatchVault show-level watched data is rebuilt when WatchVault's change counter moves, instead of every three seconds during a list build.</news>
+        <news>2.4.3.309
+- Focus monitor: the focused episode's still uses the artwork coordinates (TMDb episode positions for aired-order rows), so Bungo Stray Dogs S3E24 shows TMDb S1E60's stills and not only the TVDB fallback.
+- Anime calendar: episodes already watched in WatchVault stay in the calendar (hide watched no longer removes them from it), so the calendar shows every airing row.
+- Order screen and marks: the TVDB order list is cached for six hours, and the random bag no longer makes the by-ID TMDb still request that returned nothing for episodes that have stills.</news>
 
 
 
