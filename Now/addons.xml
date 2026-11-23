@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.314">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.317">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -40,9 +40,9 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.314
-- Debug export writes one .json per NIGHTSHIFT database, named after the database (settings.json, navigator.json, ...), in a folder for that export.
-- Debug export no longer needs a temporary folder (Android has none): each database is copied beside itself and the copy is removed afterwards.</news>
+        <news>2.4.3.317
+- Export all settings (debug) leaves out every setting marked hidden or autopopulated in the reviewed settings. That includes the profiles list (aiostreams.profiles, whose username and password fields are hidden) and the expiry alert state (services.expiry_alert_state).
+- Those settings keep their existing defaults.</news>
 
 
 
