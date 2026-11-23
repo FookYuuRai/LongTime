@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.310">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.311">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -40,10 +40,11 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.310
-- Theme download: a theme file the host answers as missing is remembered for 14 days and not asked for again. yt-dlp only reads real web pages now; a file name on the animemusicquiz host is no longer sent to it (that caused the 'jrk12y' 404 error).
-- Anime calendar: AniList's running episode numbers are placed across TMDb's seasons (Bungo Stray Dogs S3E24 is AniList episode 61, after TMDb's 60 season 1 episodes). A row TMDb cannot place is kept as an AniList row, so the calendar shows every airing row.
-- Aired order: a TVDB episode whose English title matches exactly one regular TMDb episode takes that episode, whatever its number. Specials keep their own matching.</news>
+        <news>2.4.3.311
+- Theme logs name the song: a theme that is missing or fails logs its name (for example 'Ending 1 Bokura - Kensho Ono (Bungo Stray Dogs Wan! 2)') with the audio and video links it tried, at info level.
+- Settings: 'Export all settings (debug)' in the General settings writes every NIGHTSHIFT setting to a .json, after a warning. Nothing is hidden until the setting names to leave out are chosen.
+- Log uploader: lines with https://api.themoviedb.org/ are kept, unless they carry a key, token or password.
+- Aired order: the title check is logged for each TVDB order: how many episodes agree with their TMDb title and which ones moved to the TMDb episode with the same title.</news>
 
 
 
