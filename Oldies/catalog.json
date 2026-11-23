@@ -5,6 +5,14 @@
       "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
       "releases": [
         {
+          "archived_at": "2026-11-23T01:56:05Z",
+          "bytes": 23169478,
+          "filename": "20261123T015605Z_45097207812_plugin.video.nightshift-2.4.3.307.zip",
+          "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
+          "sha256": "29e8933b6e76fe1b7d4eab821ee2174804833c0131b9e4235fb573ff8fe58982",
+          "version": "2.4.3.307"
+        },
+        {
           "archived_at": "2026-11-23T01:00:04Z",
           "bytes": 23167618,
           "filename": "20261123T010004Z_45091907692_plugin.video.nightshift-2.4.3.304.zip",
@@ -35,14 +43,6 @@
           "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
           "sha256": "f9602f85d68fc29c8a7ccf2453c035a89f7ac13ff2156f564fe932da36a76bf1",
           "version": "2.4.3.301"
-        },
-        {
-          "archived_at": "2026-11-22T08:28:03Z",
-          "bytes": 23094729,
-          "filename": "20261122T082803Z_45002861809_plugin.video.nightshift-2.4.3.300.zip",
-          "name": "[COLOR FF4696FF]NIGHTSHIFT[/COLOR]",
-          "sha256": "3c66f918cf832163decc095fe96e2df340dda0518887e6e7a4ef0b204be8e012",
-          "version": "2.4.3.300"
         }
       ]
     },

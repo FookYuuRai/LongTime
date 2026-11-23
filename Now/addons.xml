@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.307">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.308">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -40,10 +40,11 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.307
-- Build screens: the show-level WatchVault watched data is built once every few seconds per list build instead of once per episode row. Build times with WatchVault as the watched indicator were the cause of the slower anime calendar and recently watched builds.
-- Watch history keeps the numbering it had in 2.4.3.283. The aired-order match is used only for episode backgrounds, so existing watched marks, WatchVault rows and unmarks are unaffected. 2.4.3.306 changed that numbering; use this version instead.
-- Bungo Stray Dogs S3E24 uses TMDb S1E60 artwork (10 stills); S3E23 uses S1E59.</news>
+        <news>2.4.3.308
+- Artwork: episode backgrounds use the aired-order match to TMDb's episode positions whenever the TVDB and TMDb regular episode counts agree. Bungo Stray Dogs S3E24 uses TMDb S1E60 (10 stills). The match now also uses TMDb's season list when its episode rows are unavailable.
+- TVDB images are full artwork URLs everywhere. The relative path TVDB returned for S3E24 is joined to the TVDB artwork host, so the TVDB fallback displays.
+- The log has a TMDbOrder line for each aired-order build: TVDB and TMDb regular counts, and whether positions or name and date matching were used.
+- Screen build speed: the WatchVault show-level watched data is rebuilt when WatchVault's change counter moves, instead of every three seconds during a list build.</news>
 
 
 
