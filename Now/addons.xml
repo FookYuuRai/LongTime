@@ -14,7 +14,7 @@
         <news>1.0.0: Initial in-Kodi browser for archived LongTime releases.</news>
     </extension>
 </addon>
-<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.319">
+<addon id="plugin.video.nightshift" name="[COLOR FF4696FF]NIGHTSHIFT[/COLOR]" version="2.4.3.321">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.pil" version="1.1.7"/>
@@ -40,10 +40,10 @@
             <icon>resources/media/addon_icons/icon.png</icon>
             <fanart>resources/media/fanart.jpg</fanart>
         </assets>
-        <news>2.4.3.319
-- Debug export: the export folder is created only when it does not exist, so an existing folder no longer raises error 17.
-- Debug export: a stale copy of the settings database from an earlier export is removed before a new copy is made.
-- Default export folder: an existing folder is accepted when it is set as the default.</news>
+        <news>2.4.3.321
+- Debug export reads the settings database directly and read-only, as 2.4.3.311 did. A copy is made only when the database cannot be read directly.
+- Debug export writes settings.json to the chosen folder. When settings.json is already there, the new file is written as settings-&lt;date-time&gt;.json and the old one is not overwritten.
+- Folder and file checks for the export use Kodi's file system.</news>
 
 
 
